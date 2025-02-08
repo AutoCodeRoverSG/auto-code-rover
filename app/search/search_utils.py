@@ -339,11 +339,11 @@ def get_code_region_around_line(
 
     # start and end should also be 1-based valid line numbers
     start = max(1, line_no - window_size)
-    end = min(len(file_content), line_no + window_size)
+    end = min(len(file_content) + 1, line_no + window_size)
     snippet = ""
     for i in range(start, end):
         if with_lineno:
             snippet += f"{i} {file_content[i - 1]}"
         else:
-            snippet += file_content[i]
+            snippet += file_content[i - 1]
     return snippet
