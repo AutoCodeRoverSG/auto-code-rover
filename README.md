@@ -332,7 +332,7 @@ The current list of supported models:
 > 3. If your setup is ollama in host + ACR in its container, we recommend installing [Docker Desktop](https://docs.docker.com/desktop/) on the host, in addition to the [Docker Engine](https://docs.docker.com/engine/).
 >     - Docker Desktop contains Docker Engine, and also has a virtual machine which makes it easier to access the host ports from within a container. With Docker Desktop, this setup will work without additional effort.
 >     - When the docker installation is only Docker Engine, you may need to add either `--net=host` or `--add-host host.docker.internal=host-gateway` to the `docker run` command when starting the ACR container, so that ACR can communicate with the ollama server on the host machine.
-> If you encounter any issue in the tool or experiment, you can contact us via email at info@autocoderover.dev, or through our [discord server](https://discord.com/invite/ScXsdE49JY).
+> If you encounter any issue in the tool or experiment, you can contact us via email at ridwan.shariffdeen@sonarsource.com, or through our [discord server](https://discord.com/invite/ScXsdE49JY).
 
 ## Experiment Replication
 
@@ -341,8 +341,8 @@ Please refer to [EXPERIMENT.md](EXPERIMENT.md) for information on experiment rep
 ## ✉️ Contacts
 
 For any queries, you are welcome to open an issue.
+Alternatively, contact us at acr@sonarsource.com
 
-Alternatively, contact us at: {[yuntong](https://yuntongzhang.github.io/),[hruan](https://www.linkedin.com/in/haifeng-ruan-701a731a4/),[zhiyufan](https://zhiyufan.github.io/)}@comp.nus.edu.sg.
 
 ## Acknowledgements
 
