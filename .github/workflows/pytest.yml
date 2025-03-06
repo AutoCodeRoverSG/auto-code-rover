@@ -20,11 +20,9 @@ jobs:
     - name: Build docker image
       run: docker build -f Dockerfile.minimal -t acr .
 
-    - name: Start docker image (interactive)
-      run: docker run -it acr
+    - name: Start docker image (background)
+      run: docker run -t -d acr
 
-    - name: Activate environment
-      run: conda activate auto-code-rover
-
-    - name: Run PyTest with Coverage
-      run: pytest --cov=app test/
+    # Due to diffuculties with `conda activate` in docker, we do `conda run` while specifying the environment
+    - name: Run PyTest with Coverage (inside docker)
+      run: docker exec $(docker ps -lq) conda run --no-capture-output -n auto-code-rover pytest --cov=app test/
