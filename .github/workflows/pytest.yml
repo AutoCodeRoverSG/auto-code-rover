@@ -37,7 +37,7 @@ jobs:
     # 2) Generate a token for the project and save it as SONAR_TOKEN in the repo secrets
     # 3) To obtain test coverage data, modify the sonar-project.properties file in the root of the repo (Project key, Organization, Coverage report path)
     # 4) Uncomment the following lines
-    # - name: SonarQube Scan
-    #   uses: SonarSource/sonarqube-scan-action@v4
-    #   env:
-    #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    - name: SonarQube Scan
+      uses: SonarSource/sonarqube-scan-action@v4
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
