@@ -3,7 +3,7 @@ name: Run PyTest with Coverage
 on:
   push:
     branches:
-      - main, pytest
+      - main
   pull_request:
     branches:
       - main
