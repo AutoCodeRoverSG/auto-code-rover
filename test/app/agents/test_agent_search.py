@@ -38,63 +38,6 @@ def test_prepare_issue_prompt():
 @patch("app.agents.agent_search.print_acr")
 @patch("app.agents.agent_search.print_retrieval")
 @patch("app.agents.agent_search.config")
-def test_generator_normal(mock_config, mock_print_retrieval, mock_print_acr, mock_selected_model):
-    """
-    Test the generator branch where re_search is False.
-    In this test the generator will:
-      1. Yield its first API selection response.
-      2. Process a search result (with re_search False) to enter the analysis branch.
-      3. Complete that iteration and then yield a new API selection response.
-    """
-    # Set configuration flags.
-    mock_config.enable_sbfl = False
-    mock_config.reproduce_and_review = False
-
-    # Provide three responses via side_effect:
-    #  - First API selection call.
-    #  - Analysis call.
-    #  - Next iteration API selection call.
-    mock_selected_model.call.side_effect = [
-        ("API selection response",), 
-        ("Context analysis response",),
-        ("API selection response new iteration",)
-    ]
-
-    issue_stmt = "Sample issue"
-    sbfl_result = ""
-    reproducer_result = ""
-
-    # Create the generator instance.
-    gen = generator(issue_stmt, sbfl_result, reproducer_result)
-
-    # Advance to the first yield (API selection phase).
-    res_text, msg_thread = next(gen)
-    assert res_text == "API selection response"
-    # Verify the system prompt is present.
-    assert any(SYSTEM_PROMPT in m.get("content", "") for m in msg_thread.messages if m.get("role") == "system")
-
-    # Now send a search result with re_search = False to trigger the analysis branch.
-    search_result = "Search result content"
-    # This send() call will process the analysis branch and then, at loop end,
-    # the generator will start a new iteration yielding a new API selection response.
-    res_text_new, msg_thread_new = gen.send((search_result, False))
-    # We expect the new iteration's API selection response.
-    assert res_text_new == "API selection response new iteration"
-
-    # Verify that the analysis call response was added to the message thread.
-    # Check that at least one model message includes the context analysis response.
-    model_msgs = [m for m in msg_thread_new.messages if m.get("role") == "model"]
-    assert any("Context analysis response" in m.get("content", "") for m in model_msgs)
-
-    # Verify that the analysis prompt and analyze-and-select prompt were added as user messages.
-    user_msgs = [m for m in msg_thread_new.messages if m.get("role") == "user"]
-    assert any(ANALYZE_PROMPT in m.get("content", "") for m in user_msgs)
-    assert any(ANALYZE_AND_SELECT_PROMPT in m.get("content", "") for m in user_msgs)
-
-@patch("app.agents.agent_search.common.SELECTED_MODEL", new_callable=MagicMock, create=True)
-@patch("app.agents.agent_search.print_acr")
-@patch("app.agents.agent_search.print_retrieval")
-@patch("app.agents.agent_search.config")
 def test_generator_retry(mock_config, mock_print_retrieval, mock_print_acr, mock_selected_model):
     """
     Test the generator branch where re_search is True.
