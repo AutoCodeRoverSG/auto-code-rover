@@ -24,10 +24,11 @@ jobs:
       run: docker run -t -d acr
 
     # Due to diffuculties with `conda activate` in docker, we do `conda run` while specifying the environment
+    # setting cov-report to term and xml -> outputs coverage report to terminal, and an xml file inside the container
     - name: Run PyTest with Coverage (inside docker)
-      run: docker exec $(docker ps -lq) conda run --no-capture-output -n auto-code-rover pytest --cov=app test/ --cov-report=xml
+      run: docker exec $(docker ps -lq) conda run --no-capture-output -n auto-code-rover pytest --cov=app test/ --cov-report=term --cov-report=xml
 
-    # Saving the coverage report to Ubuntu VM as converage.xml
+    # Saving the coverage report to Ubuntu VM as converage.xml (copies it from inside the container)
     - name: Saving coverage report
       run: docker cp $(docker ps -lq):/opt/auto-code-rover/coverage.xml coverage.xml
 
