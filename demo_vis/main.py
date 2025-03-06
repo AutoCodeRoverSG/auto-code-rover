@@ -10,7 +10,7 @@ from flask import Flask, Response, jsonify, request
 from flask_cors import cross_origin
 
 sys.path.append("/opt/auto-code-rover/")
-from test_data import RawGithubTask_for_debug, test_generate_data
+from demo_vis.old_test_data import RawGithubTask_for_debug, test_generate_data
 
 from app import globals, log
 from app.main import get_args, run_raw_task

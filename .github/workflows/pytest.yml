@@ -1,0 +1,44 @@
+name: Run PyTest with Coverage
+
+on:
+  push:
+    branches:
+      - main, pytest
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Build docker image
+      run: docker build -t acr -f Dockerfile.minimal .
+
+    - name: Start docker image
+      run: docker run -d acr
+
+    - name: Check if the docker container is running
+      run: docker ps
+
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.10
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run PyTest with Coverage
+      run: |
+        pytest --cov=src tests/
+        bash <(curl -s https://codecov.io/bash)
