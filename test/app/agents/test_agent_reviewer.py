@@ -29,7 +29,6 @@ class Review:
         )
 
 # --- Function Under Test ---
-# ToDo: use function imported from app.agents.agent_reviewer?
 def extract_review_result(content: str) -> Review | None:
     try:
         data = json.loads(content)

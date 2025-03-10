@@ -65,7 +65,7 @@ def test_generator_retry(mock_config, mock_print_retrieval, mock_print_acr, mock
 
     gen = generator(issue_stmt, sbfl_result, reproducer_result)
 
-    res_text, msg_thread = next(gen)
+    res_text, _ = next(gen)
     assert res_text == "API selection response"
 
     search_result = "Retry search result"
