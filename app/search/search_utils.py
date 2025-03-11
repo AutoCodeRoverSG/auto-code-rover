@@ -14,6 +14,7 @@ def is_test_file(file_path: str) -> bool:
         "test" in Path(file_path).parts
         or "tests" in Path(file_path).parts
         or file_path.endswith("_test.py")
+        or file_path.startswith("test_")
     )
 
 
