@@ -1,7 +1,7 @@
 import json
 import pytest
 from enum import Enum
-from app.agents.agent_reviewer import extract_review_result
+from app.agents.agent_reviewer import extract_review_result  # Assuming this gets updated below
 
 # --- Dummy Definitions for Testing ---
 
@@ -28,23 +28,25 @@ class Review:
             self.test_advice == other.test_advice
         )
 
-# --- Function Under Test ---
+# --- Refactored Function Under Test ---
 def extract_review_result(content: str) -> Review | None:
     try:
         data = json.loads(content)
 
+        def get_decision(key: str) -> ReviewDecision:
+            return ReviewDecision(data[key].lower())
+
         review = Review(
-            patch_decision=ReviewDecision(data["patch-correct"].lower()),
+            patch_decision=get_decision("patch-correct"),
             patch_analysis=data["patch-analysis"],
             patch_advice=data["patch-advice"],
-            test_decision=ReviewDecision(data["test-correct"].lower()),
+            test_decision=get_decision("test-correct"),
             test_analysis=data["test-analysis"],
             test_advice=data["test-advice"],
         )
 
-        if (
-            (review.patch_decision == ReviewDecision.NO) and not review.patch_advice
-        ) and ((review.test_decision == ReviewDecision.NO) and not review.test_advice):
+        if (review.patch_decision == ReviewDecision.NO and not review.patch_advice and
+            review.test_decision == ReviewDecision.NO and not review.test_advice):
             return None
 
         return review
@@ -52,46 +54,41 @@ def extract_review_result(content: str) -> Review | None:
     except Exception:
         return None
 
-# --- Pytest Unit Tests ---
-
-def test_extract_valid_review():
-    """Test that valid JSON input returns a proper Review instance."""
-    content = json.dumps({
-        "patch-correct": "Yes",
-        "patch-analysis": "Patch analysis text",
-        "patch-advice": "Patch advice text",
-        "test-correct": "No",
-        "test-analysis": "Test analysis text",
-        "test-advice": "Some test advice"
-    })
-
+# --- Combined Pytest Unit Tests Using Parameterization ---
+@pytest.mark.parametrize("content,expected", [
+    (
+        json.dumps({
+            "patch-correct": "Yes",
+            "patch-analysis": "Patch analysis text",
+            "patch-advice": "Patch advice text",
+            "test-correct": "No",
+            "test-analysis": "Test analysis text",
+            "test-advice": "Some test advice"
+        }),
+        Review(
+            patch_decision=ReviewDecision.YES,
+            patch_analysis="Patch analysis text",
+            patch_advice="Patch advice text",
+            test_decision=ReviewDecision.NO,
+            test_analysis="Test analysis text",
+            test_advice="Some test advice"
+        )
+    ),
+    (
+        json.dumps({
+            "patch-correct": "No",
+            "patch-analysis": "Patch analysis text",
+            "patch-advice": "",
+            "test-correct": "No",
+            "test-analysis": "Test analysis text",
+            "test-advice": ""
+        }),
+        None
+    ),
+])
+def test_extract_review_valid_and_invalid(content, expected):
     review = extract_review_result(content)
-    expected_review = Review(
-        patch_decision=ReviewDecision.YES,
-        patch_analysis="Patch analysis text",
-        patch_advice="Patch advice text",
-        test_decision=ReviewDecision.NO,
-        test_analysis="Test analysis text",
-        test_advice="Some test advice"
-    )
-    assert review == expected_review
-
-def test_extract_invalid_due_to_empty_advice():
-    """
-    Test that when both patch and test decisions are 'No' and their corresponding advice are empty,
-    the function returns None.
-    """
-    content = json.dumps({
-        "patch-correct": "No",
-        "patch-analysis": "Patch analysis text",
-        "patch-advice": "",
-        "test-correct": "No",
-        "test-analysis": "Test analysis text",
-        "test-advice": ""
-    })
-
-    review = extract_review_result(content)
-    assert review is None
+    assert review == expected
 
 def test_extract_invalid_json():
     """Test that invalid JSON input returns None."""
