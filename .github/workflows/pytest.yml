@@ -25,8 +25,8 @@ jobs:
         with:
           environment-file: environment.yml
           activate-environment: auto-code-rover
-          python-version: 3.10
-          auto-update-conda: true
+          python-version: 3.12
+          auto-update-conda: false
           auto-activate-base: false
       - run: |
           conda info
