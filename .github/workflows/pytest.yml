@@ -20,11 +20,8 @@ jobs:
       - name: Setup Miniconda
         uses: conda-incubator/setup-miniconda@v2
         with:
-          # Use your environment.yml to create the conda environment.
           environment-file: environment.yml
-          # Optionally specify the environment name as defined in environment.yml.
-          activate-environment: auto-code-rover-env
-          # Set the python version (adjust if needed)
+          activate-environment: auto-code-rover
           python-version: 3.10
           auto-update-conda: true
 
