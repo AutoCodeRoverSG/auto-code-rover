@@ -28,12 +28,9 @@ jobs:
     - name: Run PyTest with Coverage (inside docker)
       run: docker exec acr-pytest conda run --no-capture-output -n auto-code-rover pytest --cov=app test/ --cov-report=term --cov-report=xml
 
-    - name: Create coverage reports directory
-      run: mkdir -p .coverage-reports
-
     # Saving the coverage report to Ubuntu VM as converage.xml (copies it from inside the container)
     - name: Saving coverage report
-      run: docker cp acr-pytest:/opt/auto-code-rover/coverage.xml .coverage-reports/coverage.xml
+      run: docker cp acr-pytest:/opt/auto-code-rover/coverage.xml coverage.xml
 
     # To enable SonarQube Scan, the following steps are required (admin access required)
     # 1) Create a new project in SonarQube for the Repo
