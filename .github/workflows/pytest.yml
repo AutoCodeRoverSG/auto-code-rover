@@ -10,8 +10,11 @@ on:
       - main
 
 jobs:
-  build:
+  pytest:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
 
     steps:
       - name: Checkout repository
@@ -24,6 +27,10 @@ jobs:
           activate-environment: auto-code-rover
           python-version: 3.10
           auto-update-conda: true
+          auto-activate-base: false
+      - run: |
+          conda info
+          conda list
 
       - name: Set PYTHONPATH
         # Mimic the Dockerfile's ENV setting
