@@ -14,40 +14,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    # - name: Build docker image
-    #   run: docker build -f Dockerfile.minimal -t acr .
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          # Use your environment.yml to create the conda environment.
+          environment-file: environment.yml
+          # Optionally specify the environment name as defined in environment.yml.
+          activate-environment: auto-code-rover-env
+          # Set the python version (adjust if needed)
+          python-version: 3.10
+          auto-update-conda: true
 
-    # - name: Start docker image (background)
-    #   run: docker run --name acr-pytest -t -d acr 
+      - name: Set PYTHONPATH
+        # Mimic the Dockerfile's ENV setting
+        run: echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
 
-    # # Due to diffuculties with `conda activate` in docker, we do `conda run` while specifying the environment
-    # # setting cov-report to term and xml -> outputs coverage report to terminal, and an xml file inside the container
-    # - name: Run PyTest with Coverage (inside docker)
-    #   run: docker exec acr-pytest conda run --no-capture-output -n auto-code-rover pytest --cov=app test/ --cov-report=term --cov-report=xml
+      - name: Install tox
+        # Install tox inside the conda environment
+        run: conda install -y tox
 
-    # # Saving the coverage report to Ubuntu VM as converage.xml (copies it from inside the container)
-    # - name: Saving coverage report
-    #   run: docker cp acr-pytest:/opt/auto-code-rover/coverage.xml coverage.xml
+      - name: Run tox tests
+        run: tox -e py
 
-    - name: Setup Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python }}
-      
-    - name: Install tox and any other packages
-      run: pip install tox
-    - name: Run tox
-      run: tox -e py
-
-    # To enable SonarQube Scan, the following steps are required (admin access required)
-    # 1) Create a new project in SonarQube for the Repo
-    # 2) Generate a token for the project and save it as SONAR_TOKEN in the repo secrets
-    # 3) To obtain test coverage data, modify the sonar-project.properties file in the root of the repo (Project key, Organization, Coverage report path)
-    # 4) Uncomment the following lines
-    - name: SonarQube Scan
-      uses: SonarSource/sonarqube-scan-action@v4
-      env:
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
