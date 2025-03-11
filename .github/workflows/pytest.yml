@@ -43,6 +43,13 @@ jobs:
       - name: Run tox tests
         run: tox -e py
 
+      - name: Check Coverage Report Exists
+        run: |
+          if [ ! -f coverage.xml ]; then
+            echo "coverage.xml not found! Aborting SonarQube scan."
+            exit 1
+          fi
+
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v4
         env:
