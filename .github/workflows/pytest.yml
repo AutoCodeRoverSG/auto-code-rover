@@ -30,7 +30,7 @@ jobs:
 
     # Saving the coverage report to Ubuntu VM as converage.xml (copies it from inside the container)
     - name: Saving coverage report
-      run: docker cp acr-pytest:/opt/auto-code-rover/coverage.xml coverage.xml
+      run: docker cp acr-pytest:/opt/auto-code-rover/coverage.xml .coverage-reports/coverage.xml
 
     # To enable SonarQube Scan, the following steps are required (admin access required)
     # 1) Create a new project in SonarQube for the Repo
