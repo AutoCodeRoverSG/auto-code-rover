@@ -17,20 +17,30 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Build docker image
-      run: docker build -f Dockerfile.minimal -t acr .
+    # - name: Build docker image
+    #   run: docker build -f Dockerfile.minimal -t acr .
 
-    - name: Start docker image (background)
-      run: docker run --name acr-pytest -t -d acr 
+    # - name: Start docker image (background)
+    #   run: docker run --name acr-pytest -t -d acr 
 
-    # Due to diffuculties with `conda activate` in docker, we do `conda run` while specifying the environment
-    # setting cov-report to term and xml -> outputs coverage report to terminal, and an xml file inside the container
-    - name: Run PyTest with Coverage (inside docker)
-      run: docker exec acr-pytest conda run --no-capture-output -n auto-code-rover pytest --cov=app test/ --cov-report=term --cov-report=xml
+    # # Due to diffuculties with `conda activate` in docker, we do `conda run` while specifying the environment
+    # # setting cov-report to term and xml -> outputs coverage report to terminal, and an xml file inside the container
+    # - name: Run PyTest with Coverage (inside docker)
+    #   run: docker exec acr-pytest conda run --no-capture-output -n auto-code-rover pytest --cov=app test/ --cov-report=term --cov-report=xml
 
-    # Saving the coverage report to Ubuntu VM as converage.xml (copies it from inside the container)
-    - name: Saving coverage report
-      run: docker cp acr-pytest:/opt/auto-code-rover/coverage.xml coverage.xml
+    # # Saving the coverage report to Ubuntu VM as converage.xml (copies it from inside the container)
+    # - name: Saving coverage report
+    #   run: docker cp acr-pytest:/opt/auto-code-rover/coverage.xml coverage.xml
+
+    - name: Setup Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python }}
+      
+    - name: Install tox and any other packages
+      run: pip install tox
+    - name: Run tox
+      run: tox -e py
 
     # To enable SonarQube Scan, the following steps are required (admin access required)
     # 1) Create a new project in SonarQube for the Repo
