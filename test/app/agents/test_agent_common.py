@@ -1,4 +1,3 @@
-import pytest
 from app.data_structures import MessageThread
 from app.agents.agent_common import replace_system_prompt, InvalidLLMResponse
 
