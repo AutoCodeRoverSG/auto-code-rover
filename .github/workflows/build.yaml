@@ -1,0 +1,28 @@
+name: Build Docker Image
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Build docker image
+      run: docker build -f Dockerfile.minimal -t acr .
+
+    - name: Start docker image (background)
+      run: docker run --name acr-pytest -t -d acr 
+
+    # Due to diffuculties with `conda activate` in docker, we do `conda run` while specifying the environment
+    # setting cov-report to term and xml -> outputs coverage report to terminal, and an xml file inside the container
+    - name: Run PyTest with Coverage (inside docker)
+      run: docker exec acr-pytest conda run --no-capture-output -n auto-code-rover pytest --cov=app test/ --cov-report=term --cov-report=xml
