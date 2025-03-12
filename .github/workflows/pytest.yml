@@ -41,7 +41,7 @@ jobs:
         run: conda install -y tox
 
       - name: Run tox tests
-        run: tox -e py
+        run: tox
 
       - name: Check Coverage Report Exists
         run: |
