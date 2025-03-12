@@ -576,7 +576,7 @@ def test_get_code_region_around_line_without_lineno(tmp_path):
     line_no = 3
     window_size = 2
     # For line_no = 3, start = max(1, 3-2)=1, end = min(15, 3+2)=5, so lines 1 to 4.
-    expected = "content 2\ncontent 3\ncontent 4\ncontent 5\n"
+    expected = "content 1\ncontent 2\ncontent 3\ncontent 4\n"
     result = get_code_region_around_line(str(temp_file), line_no, window_size, with_lineno=False)
     assert result == expected, f"Expected:\n{expected}\nGot:\n{result}"
 

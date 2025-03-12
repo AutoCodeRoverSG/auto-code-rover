@@ -346,5 +346,5 @@ def get_code_region_around_line(
         if with_lineno:
             snippet += f"{i} {file_content[i - 1]}"
         else:
-            snippet += file_content[i]
+            snippet += file_content[i - 1]
     return snippet
