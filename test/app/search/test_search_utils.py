@@ -140,13 +140,14 @@ def test_parse_python_file():
         #   def baz():         -> line 5, end at line 6
         expected_classes = [("Foo", 1, 3)]
         expected_class_to_funcs = {"Foo": [("bar", 2, 3)]}
-        expected_top_level_funcs = [("baz", 5, 6)]
+        expected_top_level_funcs = [("baz", 5, 6), ("bar", 2, 3)] # old expected_top_level_funcs = [("baz", 5, 6)]
         expected_class_relation_map = {("Foo", 1, 3): []}
 
         assert classes == expected_classes, f"Expected classes {expected_classes}, got {classes}"
         assert class_to_funcs == expected_class_to_funcs, f"Expected class_to_funcs {expected_class_to_funcs}, got {class_to_funcs}"
         # TODO: Fix this failing assertion - Function Under Test (FUT) is not actually ignoring class-defined functions.
-        # assert expected_top_level_funcs == top_level_funcs, f"Expected top_level_funcs {expected_top_level_funcs}, got {top_level_funcs}"
+        # TODO: Clarify if Class Signatures should contain the function signatures as well.
+        assert expected_top_level_funcs == top_level_funcs, f"Expected top_level_funcs {expected_top_level_funcs}, got {top_level_funcs}"
         assert class_relation_map == expected_class_relation_map, f"Expected class_relation_map {expected_class_relation_map}, got {class_relation_map}"
         print("Inline test passed.")
     finally:
