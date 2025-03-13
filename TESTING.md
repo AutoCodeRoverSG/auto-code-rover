@@ -11,9 +11,10 @@ The testing suite uses the following libraries and tools:
 - Pytest, to execute the tests
 - Coverage, (the Coverage.py tool) to measure the code coverage
 
-In the `auto-code-rover` environment, install the required libraries by running the following command:
+In the `auto-code-rover` environment, add `conda-forge` as a channel, then install the required libraries by running the following command:
 
 ```bash
+conda config --add channels conda-forge
 conda install -y tox
 ```
 
