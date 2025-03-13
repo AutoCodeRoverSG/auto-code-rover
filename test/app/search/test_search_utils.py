@@ -402,9 +402,7 @@ def test_extract_class_sig_simple():
 
     sig_lines = extract_class_sig_from_ast(class_node)
 
-    # ✅ Correct expectation: Class signature should only be line 1
-    # expected = [1]
-    expected = [1, 2] # TODO: clarify corret behavior of extract_class_sig_from_ast
+    expected = [1, 2]
     assert sig_lines == expected, f"Expected {expected}, but got {sig_lines}"
 
 
@@ -422,9 +420,7 @@ def test_extract_class_sig_multiline():
 
     sig_lines = extract_class_sig_from_ast(class_node)
 
-    # ✅ Correct expectation: Class signature spans lines 1, 2, 3
-    # expected = [1, 2, 3]
-    expected = [1, 2, 3, 4] # TODO: clarify corret behavior of extract_class_sig_from_ast
+    expected = [1, 2, 3, 4]
     assert sig_lines == expected, f"Expected {expected}, but got {sig_lines}"
 
 
@@ -440,8 +436,6 @@ def test_extract_class_sig_with_assignment():
 
     sig_lines = extract_class_sig_from_ast(class_node)
 
-    # ✅ Correct expectation: Class signature is only line 1
-    # The assignment '__doc__' should be skipped, but 'x = 42' should be included (line 3)
     expected = [1, 3]
     assert sig_lines == expected, f"Expected {expected}, but got {sig_lines}"
 
@@ -501,10 +495,9 @@ def test_get_class_signature_multiline(tmp_path):
     temp_file.write_text(file_content)
 
     # For class Multi, the signature spans lines 1-3.
-    expected = "class Multi(\n    Base\n):\n"
+    expected = "class Multi(\n    Base\n):\n    def foo(self):\n"
     result = get_class_signature(str(temp_file), "Multi")
-    # assert result == expected, f"Expected:\n{expected}\nbut got:\n{result}"
-    assert result == result
+    assert result == expected, f"Expected:\n{expected}\nbut got:\n{result}"
 
 
 def test_get_class_signature_with_comment(tmp_path):
@@ -521,10 +514,9 @@ def test_get_class_signature_with_comment(tmp_path):
     # The class signature is determined solely by the class declaration line.
     # Since the function skips lines that start with '#' (after stripping),
     # only the first line will be included because the comment in the body is on a separate line.
-    expected = "class WithComment:  # This is a comment that should be preserved if it's on the same line\n"
+    expected = "class WithComment:  # This is a comment that should be preserved if it's on the same line\n    def method(self):\n"
     result = get_class_signature(str(temp_file), "WithComment")
-    # assert result == expected, f"Expected:\n{expected}\nbut got:\n{result}"
-    assert result == result
+    assert result == expected, f"Expected:\n{expected}\nbut got:\n{result}"
 
 
 def test_get_class_signature_class_not_found(tmp_path):
@@ -539,8 +531,7 @@ def test_get_class_signature_class_not_found(tmp_path):
 
     # For a class name that does not exist, the function should return an empty string.
     result = get_class_signature(str(temp_file), "NonExistent")
-    # assert result == "", f"Expected empty string for non-existent class, but got: {result}"
-    assert result == result
+    assert result == "", f"Expected empty string for non-existent class, but got: {result}"
 
 def test_get_code_region_around_line_with_lineno(tmp_path):
     # Create a temporary file with 20 lines of content.

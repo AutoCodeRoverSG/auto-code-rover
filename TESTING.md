@@ -32,3 +32,12 @@ conda activate auto-code-rover && tox
 ```
 
 The test results and the test coverage report will be displayed in the terminal, with a `coverage.xml` file in the Cobertura format generated in the project's root directory.
+
+## Modifying the `tox.ini` file
+
+To enable missing statement coverage, add the following section the `tox.ini` file:
+
+```ini
+[coverage:report]
+show_missing = True
+```
