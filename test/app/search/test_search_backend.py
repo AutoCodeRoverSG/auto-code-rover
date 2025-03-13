@@ -1,4 +1,5 @@
 import os
+import pytest
 import textwrap
 
 from pathlib import Path
@@ -1096,8 +1097,6 @@ class TestSearchBackend:
 
 
     def test_get_bug_loc_snippets_new_with_method_and_class(self, tmp_path, monkeypatch):
-        from app.search.search_backend import SearchBackend, SearchResult, BugLocation
-
         # Create the directory and temporary file.
         temp_dir = tmp_path / "dummy_project"
         temp_dir.mkdir(parents=True, exist_ok=True)
@@ -1154,6 +1153,3 @@ class TestSearchBackend:
             else:
                 expected_intended = "This class provides additional context to the issue."
             assert loc.intended_behavior == expected_intended, f"Expected '{expected_intended}', got '{loc.intended_behavior}'"
-
-
-
