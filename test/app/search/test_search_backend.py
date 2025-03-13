@@ -4,7 +4,7 @@ import textwrap
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from app.search.search_backend import LineRange, SearchBackend, SearchResult, RESULT_SHOW_LIMIT
+from app.search.search_backend import LineRange, SearchBackend, SearchResult, RESULT_SHOW_LIMIT, BugLocation
 
 
 #######################################
@@ -1095,76 +1095,65 @@ class TestSearchBackend:
         assert ok is True
 
 
-    # def test_get_bug_loc_snippets_new_with_method_and_class(self, tmp_path, monkeypatch):
-    #     # Create a temporary Python file to simulate an existing file.
-    #     temp_file = tmp_path / "dummy_project/temp_file.py"
-    #     temp_file.write_text("dummy file content")
-        
-    #     sb = SearchBackend(project_path="dummy_project")
-    #     # Ensure parsed_files contains the temporary file.
-    #     sb.parsed_files = [str(temp_file)]
-        
-    #     bug_loc = {
-    #         "file": "temp_file.py",  # should match the end of the temp file path
-    #         "method": "do_work",
-    #         "class": "Worker",
-    #         "intended_behavior": "Expected behavior description"
-    #     }
-        
-    #     # Monkey-patch search_method_in_class to return a dummy search result.
-    #     dummy_method_sr = SearchResult(str(temp_file), 5, 15, "Worker", "do_work", "method code")
-    #     monkeypatch.setattr(sb, "search_method_in_class", lambda m, c: ("method output", [dummy_method_sr], True))
-        
-    #     # Monkey-patch search_class_in_file to return another dummy result.
-    #     dummy_class_sr = SearchResult(str(temp_file), 1, 20, "Worker", None, "class code")
-    #     monkeypatch.setattr(sb, "search_class_in_file", lambda c, f: ("class output", [dummy_class_sr], True))
-        
-    #     # Fallback functions: make them return no result.
-    #     noop = lambda *args, **kwargs: ("", [], False)
-    #     monkeyatch_noop = noop
-    #     monkeypatch.setattr(sb, "search_method", monkeyatch_noop)
-    #     monkeypatch.setattr(sb, "get_class_full_snippet", monkeyatch_noop)
-    #     monkeypatch.setattr(sb, "search_method_in_file", monkeyatch_noop)
-    #     monkeypatch.setattr(sb, "get_file_content", monkeyatch_noop)
-        
-    #     bug_locs = sb.get_bug_loc_snippets_new(bug_loc)
-    #     # Expect at least one BugLocation (from method or class context)
-    #     assert len(bug_locs) >= 1
-    #     for loc in bug_locs:
-    #         assert loc.search_result.file_path == str(temp_file)
-    #         assert loc.project_path == "dummy_project"
-    #         assert isinstance(loc.intended_behavior, str)
+    def test_get_bug_loc_snippets_new_with_method_and_class(self, tmp_path, monkeypatch):
+        from app.search.search_backend import SearchBackend, SearchResult, BugLocation
 
-    # def test_get_bug_loc_snippets_new_fallback(self, tmp_path, monkeypatch):
-    #     # Create a temporary Python file to simulate an existing file.
-    #     temp_file = tmp_path / "dummy_project/temp_file.py"
-    #     temp_file.write_text("dummy file content")
+        # Create the directory and temporary file.
+        temp_dir = tmp_path / "dummy_project"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        temp_file = temp_dir / "temp_file.py"
+        # Write multiple lines so that line indices 5 to 15 are valid.
+        temp_file.write_text("\n".join([f"line {i}" for i in range(1, 21)]))
         
-    #     sb = SearchBackend(project_path="dummy_project")
-    #     # Ensure parsed_files contains the temporary file.
-    #     sb.parsed_files = [str(temp_file)]
+        # Use the absolute temporary directory as the project path.
+        sb = SearchBackend(project_path=str(temp_dir))
+        # Ensure parsed_files contains the temporary file.
+        sb.parsed_files = [str(temp_file)]
         
-    #     bug_loc = {
-    #         "file": "temp_file.py",  # should match the end of the temp file path
-    #         "method": "",
-    #         "class": "",
-    #         "intended_behavior": "Fallback behavior"
-    #     }
+        bug_loc = {
+            "file": "temp_file.py",  # should match the end of the temp file path
+            "method": "do_work",
+            "class": "Worker",
+            "intended_behavior": "Expected behavior description"
+        }
         
-    #     dummy_file_sr = SearchResult(str(temp_file), 1, 10, None, None, "file content")
-    #     monkeypatch.setattr(sb, "get_file_content", lambda f: ("file output", [dummy_file_sr], True))
+        # Monkey-patch search_method_in_class to return a dummy search result.
+        dummy_method_sr = SearchResult(str(temp_file), 5, 15, "Worker", "do_work", "method code")
+        monkeypatch.setattr(sb, "search_method_in_class", lambda m, c: ("method output", [dummy_method_sr], True))
         
-    #     # Set other functions to return no results.
-    #     noop = lambda *args, **kwargs: ("", [], False)
-    #     monkeyatch_noop = noop
-    #     monkeypatch.setattr(sb, "search_method_in_class", monkeyatch_noop)
-    #     monkeypatch.setattr(sb, "search_method", monkeyatch_noop)
-    #     monkeypatch.setattr(sb, "search_class_in_file", monkeyatch_noop)
-    #     monkeypatch.setattr(sb, "get_class_full_snippet", monkeyatch_noop)
+        # Monkey-patch search_class_in_file to return another dummy result.
+        dummy_class_sr = SearchResult(str(temp_file), 1, 20, "Worker", None, "class code")
+        monkeypatch.setattr(sb, "search_class_in_file", lambda c, f: ("class output", [dummy_class_sr], True))
         
-    #     bug_locs = sb.get_bug_loc_snippets_new(bug_loc)
-    #     # Expect fallback route to yield one BugLocation from get_file_content.
-    #     assert len(bug_locs) == 1
-    #     loc = bug_locs[0]
-    #     assert loc.search_result.file_path == str(temp_file)
-    #     assert loc.intended_behavior == "Fallback behavior"
+        # Fallback functions: make them return no result.
+        noop = lambda *args, **kwargs: ("", [], False)
+        monkeyatch_noop = noop
+        monkeypatch.setattr(sb, "search_method", monkeyatch_noop)
+        monkeypatch.setattr(sb, "get_class_full_snippet", monkeyatch_noop)
+        monkeypatch.setattr(sb, "search_method_in_file", monkeyatch_noop)
+        monkeypatch.setattr(sb, "get_file_content", monkeyatch_noop)
+        
+        # Monkey-patch get_code_snippets so it returns a dummy snippet without reading the file.
+        monkeypatch.setattr(
+            "app.search.search_utils.get_code_snippets",
+            lambda file_path, start, end, with_lineno=True: f"dummy snippet for {file_path} {start}-{end}"
+        )
+        
+        bug_locs = sb.get_bug_loc_snippets_new(bug_loc)
+        
+        # We expect at least two BugLocations: one from the method branch and one from the class context.
+        assert len(bug_locs) >= 2, f"Expected at least 2 BugLocations, got {len(bug_locs)}"
+        for loc in bug_locs:
+            assert loc.abs_file_path == str(temp_file)
+            # Assuming apputils.to_relative_path returns the file name as relative path.
+            assert loc.rel_file_path == "temp_file.py"
+            # For BugLocations from search_method_in_class, intended_behavior should match the input.
+            # For those from search_class_in_file (class context), it is overwritten.
+            if loc.method_name is not None:
+                expected_intended = "Expected behavior description"
+            else:
+                expected_intended = "This class provides additional context to the issue."
+            assert loc.intended_behavior == expected_intended, f"Expected '{expected_intended}', got '{loc.intended_behavior}'"
+
+
+
