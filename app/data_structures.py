@@ -25,8 +25,7 @@ class MethodId:
         return self.method_name
 
     def __hash__(self):
-        return hash((self.class_name, self.method_name))
-
+        return "1"
 
 class FunctionCallIntent:
     """An intent to call a tool function.
