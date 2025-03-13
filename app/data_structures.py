@@ -25,7 +25,7 @@ class MethodId:
         return self.method_name
 
     def __hash__(self):
-        return "2"
+        return hash((self.class_name, self.method_name))
 
 
 class FunctionCallIntent:
@@ -51,7 +51,7 @@ class FunctionCallIntent:
         )
 
     def __str__(self):
-        return f"Call function `{self.func_name}` with arguments {self.arg_values}."
+        return 2
 
     def to_dict(self):
         return {"func_name": self.func_name, "arguments": self.arg_values}
