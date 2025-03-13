@@ -3,8 +3,15 @@ import textwrap
 
 from tempfile import TemporaryDirectory
 
-from app.search.search_backend import SearchBackend, LineRange
+from app.search.search_backend import LineRange, SearchBackend, SearchResult
 
+
+#######################################
+### Dummy Functions ###################
+#######################################
+## NOTE: We use dummy functions to simulate the behavior of the functions, returning predictable results.
+## These functions are used as monkey-patched implementations for the actual functions.
+## In Monkey-Patching, we temporarily replace the original function with a dummy function for testing purposes.
 
 # A fake implementation for find_python_files
 def fake_find_python_files(project_path: str):
@@ -46,7 +53,6 @@ def dummy_get_code_snippets(file_name, start, end):
 
 class TestSearchBackend:
 
-    # TODO: clarify if required to test internal methods that have no return value?
     def test_build_index(self, monkeypatch):
         # Create an instance of SearchBackend with a dummy project_path.
         sb = SearchBackend(project_path="dummy_project")
@@ -72,6 +78,41 @@ class TestSearchBackend:
         assert sb.function_index == {"func": [("dummy.py", LineRange(4, 4))]}
         assert sb.class_relation_index == {"A": []}
         assert sb.parsed_files == ["dummy.py"]
+
+    def test_update_indices(self):
+        # Create a SearchBackend instance with a dummy project path.
+        sb = SearchBackend(project_path="dummy_project")
+        
+        # Reset indexes to empty to start with a known state.
+        sb.class_index = {}
+        sb.class_func_index = {}
+        sb.function_index = {}
+        sb.class_relation_index = {}  # even though originally a defaultdict, we reset for test simplicity.
+        sb.parsed_files = []
+        
+        # Prepare dummy indices and parsed files.
+        dummy_class_index = {"A": [("file1.py", (1, 10))]}
+        dummy_class_func_index = {"A": {"method": [("file1.py", (2, 5))]}}
+        dummy_function_index = {"func": [("file2.py", (20, 30))]}
+        dummy_class_relation_index = {"A": ["B", "C"]}
+        dummy_parsed_files = ["file1.py", "file2.py"]
+        
+        # Call _update_indices with dummy data.
+        sb._update_indices(
+            dummy_class_index,
+            dummy_class_func_index,
+            dummy_function_index,
+            dummy_class_relation_index,
+            dummy_parsed_files,
+        )
+        
+        # Verify that the attributes have been updated as expected.
+        assert sb.class_index == dummy_class_index
+        assert sb.class_func_index == dummy_class_func_index
+        assert sb.function_index == dummy_function_index
+        assert sb.class_relation_index == dummy_class_relation_index
+        assert sb.parsed_files == dummy_parsed_files
+
 
     def test_build_python_index(self, monkeypatch):
         # Create a temporary project directory with one sample Python file.
@@ -348,3 +389,138 @@ class TestSearchBackend:
         assert res_classy.class_name == "ClassY"
         assert res_classy.func_name == "top_func"
         assert res_classy.code == expected_classy
+
+    def test_get_candidate_matched_py_files(self):
+        sb = SearchBackend(project_path="dummy_project")
+        
+        # Set up parsed_files with absolute paths (using various cases)
+        sb.parsed_files = [
+            "/abs/path/Foo.py",
+            "/abs/path/bar.PY",
+            "/abs/path/Baz.txt",
+            "/abs/path/otherfoo.Py",
+        ]
+        
+        # Test 1: Find files ending with "foo.py" (case-insensitive).
+        # Expected candidates: "/abs/path/Foo.py" and "/abs/path/otherfoo.Py"
+        candidates = sb._get_candidate_matched_py_files("foo.py")
+        expected_candidates = {"/abs/path/Foo.py", "/abs/path/otherfoo.Py"}
+        assert set(candidates) == expected_candidates, f"Expected {expected_candidates}, got {candidates}"
+        
+        # Test 2: Find files ending with "BAR.py" (case-insensitive).
+        candidates = sb._get_candidate_matched_py_files("BAR.py")
+        expected_candidates = {"/abs/path/bar.PY"}
+        assert set(candidates) == expected_candidates, f"Expected {expected_candidates}, got {candidates}"
+        
+        # Test 3: No matching files should return an empty list.
+        candidates = sb._get_candidate_matched_py_files("nonexistent.py")
+        assert candidates == [], f"Expected empty list, got {candidates}"
+
+
+    #######################################
+    ### Testing Interfaces ################
+    #######################################
+    
+    def test_get_class_full_snippet_not_found(self):
+        # Create a SearchBackend instance with an empty class_index.
+        sb = SearchBackend(project_path="dummy_project")
+        sb.class_index = {}  # ensure no classes are indexed
+
+        # Call get_class_full_snippet with a class name that doesn't exist.
+        result, search_res, flag = sb.get_class_full_snippet("NonExisting")
+        
+        # Expect a message indicating that the class was not found, no search results, and flag False.
+        expected_message = "Could not find class NonExisting in the codebase."
+        assert result == expected_message
+        assert search_res == []
+        assert flag is False
+    
+    def test_get_class_full_snippet_found(self, monkeypatch):
+
+        sb = SearchBackend(project_path="dummy_project")
+        
+        # Set up class_index with a sample class "A" and one occurrence.
+        sb.class_index = {
+            "A": [("/absolute/path/fileA.py", (1, 10))]
+        }
+        
+        # Monkey-patch get_code_snippets so it returns a predictable dummy snippet.
+        monkeypatch.setattr(
+            "app.search.search_backend.search_utils.get_code_snippets",
+            lambda file_path, start, end, with_lineno=True: f"dummy code snippet from {file_path} lines {start}-{end}"
+        )
+        
+        # Monkey-patch SearchResult.to_tagged_str to return a predictable tagged string.
+        monkeypatch.setattr(
+            SearchResult, "to_tagged_str",
+            lambda self, project_path: f"tagged snippet from {self.file_path} {self.start}-{self.end}"
+        )
+        
+        # Call get_class_full_snippet for class "A".
+        result, search_res, flag = sb.get_class_full_snippet("A")
+        
+        # Verify that flag is True and there is one SearchResult.
+        assert flag is True
+        assert len(search_res) == 1
+        
+        # Verify that the result message starts with the expected header.
+        expected_header = "Found 1 classes with name A in the codebase:"
+        assert result.startswith(expected_header)
+        
+        # Check that the tagged snippet from our dummy SearchResult appears in the output.
+        expected_tagged = "tagged snippet from /absolute/path/fileA.py 1-10"
+        assert expected_tagged in result
+
+    def test_search_class_not_found(self):
+        from app.search.search_backend import SearchBackend
+        # Create a SearchBackend instance with an empty class_index.
+        sb = SearchBackend(project_path="dummy_project")
+        sb.class_index = {}  # No classes indexed.
+        
+        # Call search_class with a class name that doesn't exist.
+        result, search_res, flag = sb.search_class("NonExisting")
+        
+        # Verify that the error message, empty result list, and False flag are returned.
+        expected_message = "Could not find class NonExisting in the codebase."
+        assert result == expected_message
+        assert search_res == []
+        assert flag is False
+
+    def test_search_class_found_single(self, monkeypatch):
+        from app.search.search_backend import SearchBackend, SearchResult, RESULT_SHOW_LIMIT
+
+        sb = SearchBackend(project_path="dummy_project")
+        
+        # Set up class_index with one occurrence of class "MyClass".
+        sb.class_index = {
+            "MyClass": [("/absolute/path/fileA.py", (1, 10))]
+        }
+        
+        # Override get_class_signature to return a predictable signature.
+        monkeypatch.setattr(
+            "app.search.search_backend.search_utils.get_class_signature",
+            lambda fname, cname: f"Signature for {cname} in {fname}"
+        )
+        
+        # Override SearchResult.to_tagged_str to return a predictable tagged string.
+        monkeypatch.setattr(
+            SearchResult,
+            "to_tagged_str",
+            lambda self, project_path: f"Tagged signature for {self.file_path}"
+        )
+        
+        # Call search_class for "MyClass".
+        result, search_res, flag = sb.search_class("MyClass")
+        
+        # Verify the flag is True and we have one search result.
+        assert flag is True
+        assert len(search_res) == 1
+        
+        # The output message should start with a header indicating 1 found.
+        expected_header = "Found 1 classes with name MyClass in the codebase:"
+        assert result.startswith(expected_header)
+        
+        # Verify that the tagged string appears in the output.
+        expected_tagged = "Tagged signature for /absolute/path/fileA.py"
+        assert expected_tagged in result
+
