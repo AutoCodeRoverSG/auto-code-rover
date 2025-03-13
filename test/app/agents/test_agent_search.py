@@ -1,5 +1,4 @@
 from unittest.mock import patch, MagicMock
-import pytest
 from collections.abc import Generator
 
 from app.agents.agent_search import (

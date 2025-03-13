@@ -11,16 +11,34 @@ The testing suite uses the following libraries and tools:
 - Pytest, to execute the tests
 - Coverage, (the Coverage.py tool) to measure the code coverage
 
-In the `auto-code-rover` environment, install the required libraries by running the following command:
+In the `auto-code-rover` environment, add `conda-forge` as a channel, then install the required libraries by running the following command:
 
 ```bash
+conda config --add channels conda-forge
 conda install -y tox
 ```
 
-and execute the tox commands (configured in `tox.ini`) to run the tests:
+## Running the tests locally
+
+To run the tests, execute the `tox` command (you can view the configurations in `tox.ini`) to run the tests:
 
 ```bash
-tox -e py
+tox
+```
+
+Alternatively, command to activate the `auto-code-rover` environment and run the tests:
+
+```bash
+conda activate auto-code-rover && tox
 ```
 
 The test results and the test coverage report will be displayed in the terminal, with a `coverage.xml` file in the Cobertura format generated in the project's root directory.
+
+## Modifying the `tox.ini` file
+
+To enable missing statement coverage, add the following section the `tox.ini` file:
+
+```ini
+[coverage:report]
+show_missing = True
+```
