@@ -51,7 +51,7 @@ class FunctionCallIntent:
         )
 
     def __str__(self):
-        return f"Call function `{self.func_name}` with arguments {self.arg_values}."
+        return f"FunctionCallIntent(func_name={self.func_name}, arguments={self.arg_values})"
 
     def to_dict(self):
         return {"func_name": self.func_name, "arguments": self.arg_values}

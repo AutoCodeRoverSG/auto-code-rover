@@ -664,14 +664,15 @@ def test_get_code_region_around_line_edge_of_file(tmp_path):
     temp_file.write_text(file_content)
 
     # Choose a line number near the end.
-    # For line_no = 8, window_size = 5, start = max(1, 8-5)=3, end = min(8, 8+5)=8.
-    # Loop runs for i in range(3, 8) → lines 3 to 7.
+    # For line_no = 8, window_size = 5, start = max(1, 8-5)=3, end = min(9, 8+5)=9.
+    # Loop runs for i in range(3, 9) → lines 3 to 8.
     expected = (
         "3 edge 3\n"
         "4 edge 4\n"
         "5 edge 5\n"
         "6 edge 6\n"
         "7 edge 7\n"
+        "8 edge 8\n"
     )
     result = get_code_region_around_line(str(temp_file), 8, window_size=5, with_lineno=True)
     assert result == expected, f"Expected:\n{expected}\nGot:\n{result}"
