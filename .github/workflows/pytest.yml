@@ -51,6 +51,13 @@ jobs:
             exit 1
           fi
 
+      - name: Print Branch Coverage
+        run: |
+          echo "Branch Coverage Details:"
+          echo "Total Branches: $(grep -o 'branches-valid="[0-9]*"' coverage.xml | sed 's/branches-valid="//;s/"//')"
+          echo "Branches Covered: $(grep -o 'branches-covered="[0-9]*"' coverage.xml | sed 's/branches-covered="//;s/"//')"
+          echo "Branch Rate: $(grep -o 'branch-rate="[0-9\.]*"' coverage.xml | sed 's/branch-rate="//;s/"//')"
+
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v4
         env:
