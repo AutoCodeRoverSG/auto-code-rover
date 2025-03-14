@@ -395,7 +395,6 @@ def test_extract_func_sig_multiline_signature():
 
 
 def test_extract_func_sig_no_body():
-    import ast
     # Create a dummy function node with no body.
     func_node = ast.FunctionDef(
         name="no_body_func",
@@ -489,7 +488,6 @@ def test_extract_class_sig_with_method_and_assignment():
     assert sig_lines == expected, f"Expected {expected}, but got {sig_lines}"
 
 def test_extract_class_sig_no_body():
-    import ast
     # Create a dummy ClassDef node with an empty body.
     empty_class = ast.ClassDef(
         name="EmptyClass",
@@ -507,7 +505,6 @@ def test_extract_class_sig_no_body():
     assert sig_lines == expected, f"Expected {expected} but got {sig_lines}"
 
 def test_extract_class_sig_with_expr_statement():
-    import ast, textwrap
     # Create a class with a stray expression in the body (e.g. a string literal).
     source = textwrap.dedent("""\
         class Dummy:
