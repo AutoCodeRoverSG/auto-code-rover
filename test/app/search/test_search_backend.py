@@ -7,6 +7,8 @@ from tempfile import TemporaryDirectory
 
 from app.search.search_backend import LineRange, SearchBackend, SearchResult, RESULT_SHOW_LIMIT, BugLocation
 
+# Prevent pytest from collecting the if __name__ == "__main__": entry point.
+SearchBackend.__test__ = False
 
 #######################################
 ### Dummy Functions ###################
@@ -551,6 +553,62 @@ class TestSearchBackend:
         assert search_res == []
         assert flag is False
 
+    def test_search_class_empty_search_results(self):
+        # Create a SearchBackend instance with a key for "A" but with an empty list.
+        sb = SearchBackend(project_path="dummy_project")
+        sb.class_index = {"A": []}  # key exists, but no occurrences
+
+        # Call search_class for "A".
+        result, search_res, flag = sb.search_class("A")
+
+        # We expect the function to return the not-found message.
+        expected_message = "Could not find class A in the codebase."
+        assert result == expected_message
+        assert search_res == []
+        assert flag is False
+
+    def test_search_class_too_many_results(self, monkeypatch):
+        sb = SearchBackend(project_path="dummy_project")
+        
+        # Set up the class_index with three occurrences for class "A".
+        sb.class_index = {
+            "A": [
+                ("/absolute/path/fileA.py", (1, 10)),
+                ("/absolute/path/fileB.py", (11, 20)),
+                ("/absolute/path/fileC.py", (21, 30)),
+            ]
+        }
+        
+        # Monkey-patch get_class_signature to return a dummy signature.
+        monkeypatch.setattr(
+            "app.search.search_backend.search_utils.get_class_signature",
+            lambda fname, class_name: f"signature of {class_name} from {fname}"
+        )
+        
+        # Monkey-patch collapse_to_file_level to return a predictable collapsed string.
+        monkeypatch.setattr(
+            SearchResult, "collapse_to_file_level",
+            lambda search_res, project_path: "\n".join(
+                f"{res.file_path}: lines {res.start}-{res.end}" for res in search_res
+            )
+        )
+        
+        # Monkey-patch RESULT_SHOW_LIMIT to force the branch.
+        monkeypatch.setattr("app.search.search_backend.RESULT_SHOW_LIMIT", 1)
+        
+        # Call search_class for class "A".
+        result, final_search_res, flag = sb.search_class("A")
+        
+        # Check that flag is True.
+        assert flag is True
+        
+        # Verify that the branch for too many results was taken by checking the message.
+        assert "They appeared in the following files:" in result
+        
+        # Only RESULT_SHOW_LIMIT (1) result should be returned.
+        assert len(final_search_res) == 1
+
+
     def test_search_class_found_single(self, monkeypatch):
         from app.search.search_backend import SearchBackend, SearchResult, RESULT_SHOW_LIMIT
 
@@ -622,6 +680,30 @@ class TestSearchBackend:
         assert search_res == []
         assert flag is False
 
+    def test_search_class_in_file_no_occurrence_in_candidate(self,  monkeypatch):
+        sb = SearchBackend(project_path="dummy_project")
+        # Simulate candidate file found.
+        monkeypatch.setattr(sb, "_get_candidate_matched_py_files", lambda file_name: ["/absolute/path/dummy.py"])
+        
+        # Set class_index with an occurrence in a different file.
+        sb.class_index = {
+            "MyClass": [("/absolute/path/other.py", (50, 60))]
+        }
+        
+        # Patch get_code_snippets (though it won't be called in this branch).
+        monkeypatch.setattr(
+            "app.search.search_utils.get_code_snippets",
+            lambda fname, start, end, with_lineno=True: "dummy class snippet"
+        )
+        
+        result, search_res, flag = sb.search_class_in_file("MyClass", "dummy.py")
+        
+        # Since no occurrence matches the candidate file, we expect an error.
+        expected_message = "Could not find class MyClass in file dummy.py."
+        assert result == expected_message
+        assert search_res == []
+        assert flag is False
+
     def test_search_class_in_file_found(self, monkeypatch):
         from app.search.search_backend import SearchBackend, SearchResult
         
@@ -677,6 +759,30 @@ class TestSearchBackend:
         assert tool_output == expected_message, f"Expected message: {expected_message}, got: {tool_output}"
         assert results == []
         assert flag is False
+
+    def test_search_method_in_file_filtered_res_empty(self, monkeypatch):
+        sb = SearchBackend(project_path="dummy_project")
+        
+        # Simulate candidate file found.
+        candidate_file = "/absolute/path/dummy.py"
+        monkeypatch.setattr(sb, "_get_candidate_matched_py_files", lambda file_name: [candidate_file])
+        
+        # Patch the search function to return a result in a different file.
+        def fake_search_func(method_name):
+            # Return a SearchResult with a file_path that is not in the candidate list.
+            return [SearchResult("/absolute/path/other.py", 100, 110, None, method_name, "dummy method snippet")]
+        
+        monkeypatch.setattr(sb, "_search_func_in_code_base", fake_search_func)
+        
+        method_name = "nonexistent_method_in_file"
+        file_name = "dummy.py"
+        result, filtered_res, flag = sb.search_method_in_file(method_name, file_name)
+        
+        expected_message = f"There is no method with name `{method_name}` in file {file_name}."
+        assert result == expected_message
+        assert filtered_res == []
+        assert flag is False
+
 
     def test_search_method_in_file_method_not_found(self, monkeypatch):
         from app.search.search_backend import SearchBackend
@@ -1021,6 +1127,109 @@ class TestSearchBackend:
         assert results == []
         assert flag is False
 
+    def test_get_code_around_line_invalid_line(self, monkeypatch):
+        sb = SearchBackend(project_path="dummy_project")
+        
+        # Simulate candidate file(s) being found.
+        monkeypatch.setattr(sb, "_get_candidate_matched_py_files", lambda file_name: ["/absolute/path/dummy.py"])
+        
+        # Force get_code_region_around_line to always return None.
+        monkeypatch.setattr(
+            "app.search.search_backend.search_utils.get_code_region_around_line",
+            lambda file_path, line_no, window_size: None
+        )
+        
+        # Call get_code_around_line. Since snippet is None, no region search result is added.
+        result, func_search_results, flag = sb.get_code_around_line("dummy.py", "10", "2")
+        
+        # Expect the error message indicating the line number is invalid.
+        expected_message = "10 is invalid in file dummy.py."
+        assert result == expected_message
+        assert func_search_results == []
+        assert flag is False
+
+    def test_get_code_around_line_with_class_and_func(self, monkeypatch):
+        sb = SearchBackend(project_path="dummy_project")
+        
+        # Return one candidate file.
+        monkeypatch.setattr(sb, "_get_candidate_matched_py_files", lambda file_name: ["/absolute/path/dummy.py"])
+        
+        # Simulate a valid code snippet.
+        monkeypatch.setattr(
+            "app.search.search_backend.search_utils.get_code_region_around_line",
+            lambda file_path, line_no, window_size: f"dummy snippet for {file_path}"
+        )
+        
+        # Simulate that the file and line correspond to a class and function.
+        monkeypatch.setattr(sb, "_file_line_to_class_and_func", lambda file_path, line_no: ("DummyClass", "dummy_func"))
+        
+        # Simulate search_method_in_class returning a dummy result.
+        monkeypatch.setattr(sb, "search_method_in_class", lambda func_name, class_name: (
+            "", [SearchResult("/absolute/path/dummy.py", 1, 20, "DummyClass", "dummy_func", "signature")], True
+        ))
+        
+        # Patch to_tagged_str for predictable output.
+        monkeyatch_str = lambda self, project_path: f"tagged snippet from {self.file_path} lines {self.start}-{self.end}"
+        monkeypatch.setattr(SearchResult, "to_tagged_str", monkeyatch_str)
+        
+        result, func_search_results, flag = sb.get_code_around_line("dummy.py", "10", "2")
+        
+        # Verify that a region search result is added.
+        assert "Found 1 code snippets around line 10:" in result
+        # The function search result should come from search_method_in_class.
+        assert len(func_search_results) == 1
+        assert flag is True
+
+    def test_get_code_around_line_with_only_func(self, monkeypatch):
+        sb = SearchBackend(project_path="dummy_project")
+        
+        monkeypatch.setattr(sb, "_get_candidate_matched_py_files", lambda file_name: ["/absolute/path/dummy.py"])
+        
+        monkeypatch.setattr(
+            "app.search.search_backend.search_utils.get_code_region_around_line",
+            lambda file_path, line_no, window_size: f"dummy snippet for {file_path}"
+        )
+        
+        # Simulate that only a function is found (class is None).
+        monkeypatch.setattr(sb, "_file_line_to_class_and_func", lambda file_path, line_no: (None, "dummy_func"))
+        
+        # Simulate search_method returning a dummy search result.
+        monkeypatch.setattr(sb, "search_method", lambda func_name: (
+            "", [SearchResult("/absolute/path/dummy.py", 1, 20, None, "dummy_func", "signature")], True
+        ))
+        
+        monkeypatch.setattr(SearchResult, "to_tagged_str", lambda self, project_path: f"tagged snippet from {self.file_path} lines {self.start}-{self.end}")
+        
+        result, func_search_results, flag = sb.get_code_around_line("dummy.py", "10", "2")
+        
+        assert "Found 1 code snippets around line 10:" in result
+        # The function search result should come from search_method.
+        assert len(func_search_results) == 1
+        assert flag is True
+
+    def test_get_code_around_line_with_no_func_and_class(self, monkeypatch):
+        sb = SearchBackend(project_path="dummy_project")
+        
+        monkeypatch.setattr(sb, "_get_candidate_matched_py_files", lambda file_name: ["/absolute/path/dummy.py"])
+        
+        monkeypatch.setattr(
+            "app.search.search_backend.search_utils.get_code_region_around_line",
+            lambda file_path, line_no, window_size: f"dummy snippet for {file_path}"
+        )
+        
+        # Simulate that neither class nor function is found.
+        monkeypatch.setattr(sb, "_file_line_to_class_and_func", lambda file_path, line_no: (None, None))
+        
+        # No need to patch search_method or search_method_in_class because they won't be called.
+        monkeypatch.setattr(SearchResult, "to_tagged_str", lambda self, project_path: f"tagged snippet from {self.file_path} lines {self.start}-{self.end}")
+        
+        result, func_search_results, flag = sb.get_code_around_line("dummy.py", "10", "2")
+        
+        assert "Found 1 code snippets around line 10:" in result
+        # In this case, since there's no function found, func_search_results should remain empty.
+        assert func_search_results == []
+        assert flag is True
+
     def test_get_code_around_line_good(self, monkeypatch):
         sb = SearchBackend(project_path="dummy_project")
         dummy_file = "/dummy/path/existing.py"
@@ -1146,6 +1355,70 @@ class TestSearchBackend:
         assert search_res == []
         assert ok is False
 
+    def test_get_inherited_methods_depth_break(self, monkeypatch):
+        sb = SearchBackend(project_path="dummy_project")
+        
+        # Set up the class relation hierarchy:
+        # "A" directly inherits from "B" and "D". Then, "B" inherits from "E".
+        # We'll mark that "D" overrides the method, and "E" also does but should be ignored.
+        sb.class_relation_index = {
+            "A": ["B", "D"],
+            "B": ["E"],
+            "D": [],
+            "E": []
+        }
+        
+        # Set up function index:
+        # "B" does not override 'foo', "D" does, and "E" does too.
+        sb.class_func_index = {
+            "B": {},
+            "D": {"foo": "dummy signature"},
+            "E": {"foo": "dummy override"}
+        }
+        
+        # Monkey-patch search_method_in_class so that when it is called,
+        # it returns a dummy result for the override.
+        monkeypatch.setattr(
+            sb,
+            "search_method_in_class",
+            lambda super_call: (
+                "dummy output",
+                [SearchResult("/path/dummy.py", 1, 10, "D", "foo", "code snippet")],
+                True
+            )
+        )
+        
+        output, search_res, ok = sb._get_inherited_methods("A", "foo")
+        
+        # We expect that only the override from "D" (depth 1) is processed.
+        expected_snippet = "As additional context, this is an overriden instance of the method foo inside class D"
+        assert expected_snippet in output
+        assert len(search_res) == 1
+        assert ok is True
+
+    def test_get_inherited_methods_call_not_ok(self, monkeypatch):
+        sb = SearchBackend(project_path="dummy_project")
+        
+        # Set up a simple relation where "A" inherits from "B".
+        sb.class_relation_index = {"A": ["B"]}
+        # "B" overrides the method "foo".
+        sb.class_func_index = {"B": {"foo": "dummy signature"}}
+        
+        # Monkey-patch search_method_in_class to simulate a failure (call_ok=False).
+        monkeypatch.setattr(
+            sb,
+            "search_method_in_class",
+            lambda super_call: ("dummy output", [SearchResult("/path/dummy.py", 1, 10, "B", "foo", "code snippet")], False)
+        )
+        
+        output, search_res, ok = sb._get_inherited_methods("A", "foo")
+        
+        # Since call_ok is False, nothing should be appended to the final output.
+        # Therefore, output should be empty, search_res should be empty, and ok False.
+        assert output == ""
+        assert search_res == []
+        assert ok is False
+
     def test_get_inherited_methods_found(self, monkeypatch):
         sb = SearchBackend(project_path="dummy_project")
         sb.class_relation_index = {"Child": ["Parent"]}
@@ -1216,3 +1489,312 @@ class TestSearchBackend:
             else:
                 expected_intended = "This class provides additional context to the issue."
             assert loc.intended_behavior == expected_intended, f"Expected '{expected_intended}', got '{loc.intended_behavior}'"
+
+    def test_bug_loc_split_exact_two_fragments(self, monkeypatch):
+        sb = SearchBackend(project_path="dummy_project")
+        bug_location_dict = {
+            "file": "dummy.py",
+            "method": "ClassA.methodA",
+            "class": "",
+            "intended_behavior": "do something"
+        }
+        
+        # Patch get_code_snippets to avoid FileNotFoundError.
+        monkeypatch.setattr(
+            "app.search.search_utils.get_code_snippets",
+            lambda file_full_path, start, end, with_lineno=True: "dummy snippet"
+        )
+        
+        # Simulate a successful lookup in a method within a class.
+        monkeypatch.setattr(
+            sb,
+            "search_method_in_class",
+            lambda method, cls: (
+                "output from search_method_in_class",
+                [SearchResult("dummy.py", 10, 20, "ClassA", "methodA", "code snippet")],
+                True
+            )
+        )
+        
+        # Simulate inherited method lookup.
+        monkeypatch.setattr(
+            sb,
+            "_get_inherited_methods",
+            lambda cls, method: (
+                "inherited output",
+                [SearchResult("dummy.py", 5, 9, "BaseClass", "methodA", "base snippet")],
+                True
+            )
+        )
+        
+        # Simulate additional class context lookup.
+        monkeypatch.setattr(
+            sb,
+            "search_class_in_file",
+            lambda cls, file: (
+                "class output",
+                [SearchResult("dummy.py", 1, 30, "ClassA", None, "class snippet")],
+                True
+            )
+        )
+        
+        bug_locs = sb.get_bug_loc_snippets_new(bug_location_dict)
+        # Expect bug locations from search_method_in_class plus inherited and class context results.
+        assert bug_locs
+        # Optionally, inspect attributes of bug_locs here.
+
+
+    def test_bug_loc_split_too_many_fragments(self, monkeypatch):
+        sb = SearchBackend(project_path="dummy_project")
+        bug_location_dict = {
+            "file": "dummy.py",
+            "method": "A.B.C",  # Too many fragments should trigger warning and fallback.
+            "class": "",
+            "intended_behavior": "do something else"
+        }
+        
+        # Patch get_code_snippets to avoid FileNotFoundError.
+        monkeypatch.setattr(
+            "app.search.search_utils.get_code_snippets",
+            lambda file_full_path, start, end, with_lineno=True: "dummy snippet"
+        )
+        
+        # Fallback search using search_method_in_file.
+        monkeypatch.setattr(
+            sb,
+            "search_method_in_file",
+            lambda method, file: (
+                "output from search_method_in_file",
+                [SearchResult("dummy.py", 15, 25, None, "A.B.C", "fallback snippet")],
+                True
+            )
+        )
+        
+        bug_locs = sb.get_bug_loc_snippets_new(bug_location_dict)
+        assert bug_locs
+        # Further assertions on bug_locs can be made here.
+
+
+    def test_bug_loc_fallback_method_in_file(self, monkeypatch):
+        sb = SearchBackend(project_path="dummy_project")
+        bug_location_dict = {
+            "file": "dummy.py",
+            "method": "nonexistent_method",
+            "class": "NonexistentClass",
+            "intended_behavior": "should fallback"
+        }
+        
+        # Patch get_code_snippets to avoid FileNotFoundError.
+        monkeypatch.setattr(
+            "app.search.search_utils.get_code_snippets",
+            lambda file_full_path, start, end, with_lineno=True: "dummy snippet"
+        )
+        
+        # Force search_method_in_class to fail.
+        monkeypatch.setattr(
+            sb,
+            "search_method_in_class",
+            lambda method, cls: ("", [], False)
+        )
+        
+        # Fallback to search_method_in_file.
+        monkeypatch.setattr(
+            sb,
+            "search_method_in_file",
+            lambda method, file: (
+                "output from search_method_in_file",
+                [SearchResult("dummy.py", 30, 40, None, "nonexistent_method", "fallback snippet")],
+                True
+            )
+        )
+        
+        bug_locs = sb.get_bug_loc_snippets_new(bug_location_dict)
+        assert bug_locs
+        # Further assertions can be added here.
+
+
+    def test_bug_loc_skip_invalid_results(self, monkeypatch):
+        sb = SearchBackend(project_path="dummy_project")
+        bug_location_dict = {
+            "file": "dummy.py",
+            "method": "methodX",
+            "class": "ClassX",
+            "intended_behavior": "behave correctly"
+        }
+        
+        # Patch get_code_snippets to avoid FileNotFoundError.
+        monkeypatch.setattr(
+            "app.search.search_utils.get_code_snippets",
+            lambda file_full_path, start, end, with_lineno=True: "dummy snippet"
+        )
+        
+        # Simulate search_method_in_class returning one invalid and one valid SearchResult.
+        def fake_search_method_in_class(method, cls):
+            return (
+                "output",
+                [
+                    SearchResult("dummy.py", None, None, "ClassX", "methodX", "invalid snippet"),
+                    SearchResult("dummy.py", 100, 110, "ClassX", "methodX", "valid snippet")
+                ],
+                True
+            )
+        monkeypatch.setattr(sb, "search_method_in_class", fake_search_method_in_class)
+        
+        # Return empty results for inherited and class context lookups.
+        monkeypatch.setattr(sb, "_get_inherited_methods", lambda cls, method: ("", [], True))
+        monkeypatch.setattr(sb, "search_class_in_file", lambda cls, file: ("", [], True))
+        
+        bug_locs = sb.get_bug_loc_snippets_new(bug_location_dict)
+        # Only the valid SearchResult (with proper start/end) should produce a BugLocation.
+        assert len(bug_locs) == 1
+
+
+    def test_bug_loc_no_valid_search(self, monkeypatch):
+        sb = SearchBackend(project_path="dummy_project")
+        bug_location_dict = {
+            "file": "nonexistent.py",
+            "method": "nonexistent_method",
+            "class": "NonexistentClass",
+            "intended_behavior": "nothing"
+        }
+        
+        # Patch get_code_snippets to avoid FileNotFoundError.
+        monkeypatch.setattr(
+            "app.search.search_utils.get_code_snippets",
+            lambda file_full_path, start, end, with_lineno=True: "dummy snippet"
+        )
+        
+        # Force all search functions to fail.
+        monkeypatch.setattr(sb, "search_method_in_class", lambda m, c: ("", [], False))
+        monkeypatch.setattr(sb, "search_method_in_file", lambda m, f: ("", [], False))
+        monkeypatch.setattr(sb, "search_class_in_file", lambda c, f: ("", [], False))
+        monkeypatch.setattr(sb, "get_class_full_snippet", lambda c: ("", [], False))
+        monkeypatch.setattr(sb, "search_method", lambda m: ("", [], False))
+        monkeypatch.setattr(sb, "get_file_content", lambda f: ("", [], False))
+        
+        bug_locs = sb.get_bug_loc_snippets_new(bug_location_dict)
+        # Expect an empty list because all search functions failed.
+        assert bug_locs == []
+
+    def test_get_bug_loc_snippets_invalid_fields(self, monkeypatch):
+        sb = SearchBackend(project_path="dummy_project")
+        bug_location_dict = {
+            "file": "dummy.py",
+            "method": "TestMethod",
+            "class": "TestClass",
+            "intended_behavior": "intended behavior"
+        }
+        
+        # Record calls for _get_inherited_methods and search_class_in_file.
+        inherited_calls = []
+        def fake_get_inherited_methods(cls, method):
+            inherited_calls.append(1)
+            # Return one valid SearchResult from inherited lookup.
+            return ("inherited output", [
+                SearchResult("dummy.py", 21, 29, "TestClass", "TestMethod", "inherited snippet")
+            ], True)
+        sb._get_inherited_methods = fake_get_inherited_methods
+        
+        class_context_calls = []
+        def fake_search_class_in_file(cls, file):
+            class_context_calls.append(1)
+            # Return one valid SearchResult from class context lookup.
+            return ("class output", [
+                SearchResult("dummy.py", 1, 9, "TestClass", None, "class snippet")
+            ], True)
+        sb.search_class_in_file = fake_search_class_in_file
+        
+        # Prepare three SearchResults from search_method_in_class.
+        # SR1: Invalid for inherited lookup (missing class_name).
+        sr1 = SearchResult("dummy.py", 10, 20, None, "TestMethod", "snippet1")
+        # SR2: Fully valid.
+        sr2 = SearchResult("dummy.py", 30, 40, "TestClass", "TestMethod", "snippet2")
+        # SR3: Invalid for BugLocation conversion (missing start).
+        sr3 = SearchResult("dummy.py", None, 50, "TestClass", "TestMethod", "snippet3")
+        
+        def fake_search_method_in_class(method, cls):
+            # Return the three results and indicate success.
+            return ("output", [sr1, sr2, sr3], True)
+        sb.search_method_in_class = fake_search_method_in_class
+        
+        # Ensure that fallback searches are not triggered.
+        sb.search_method_in_file = lambda m, f: ("", [], False)
+        sb.get_class_full_snippet = lambda cls: ("", [], False)
+        sb.search_method = lambda m: ("", [], False)
+        sb.get_file_content = lambda f: ("", [], False)
+        
+        # Patch get_code_snippets (used in BugLocation creation) to avoid file I/O.
+        monkeypatch.setattr(
+            "app.search.search_backend.search_utils.get_code_snippets",
+            lambda fname, start, end, with_lineno=True: "dummy snippet"
+        )
+        
+        bug_locs = sb.get_bug_loc_snippets_new(bug_location_dict)
+        
+        # Explanation:
+        # - search_method_in_class returns [sr1, sr2, sr3].
+        # - For each result:
+        #     * SR1: Skipped for inherited/class-context (due to missing class_name).
+        #     * SR2: Triggers inherited and class-context lookups (adding 2 SearchResults).
+        #     * SR3: Triggers inherited and class-context lookups (adding 2 SearchResults), even though SR3 itself is later skipped.
+        # - Final search_res becomes:
+        #       [SR1, SR2, SR3, inherited from SR2, inherited from SR3, class-context from SR2, class-context from SR3]
+        # - BugLocation creation filters out any result with missing start/end.
+        #       SR1: valid (start=10, end=20)
+        #       SR2: valid (start=30, end=40)
+        #       SR3: skipped (start is None)
+        #       Both inherited results: valid (start=21, end=29)
+        #       Both class-context results: valid (start=1, end=9)
+        # - Total expected BugLocations: 1 (SR1) + 1 (SR2) + 2 (inherited) + 2 (class-context) = 6.
+        
+        assert len(bug_locs) == 6, f"Expected 6 bug locations, got {len(bug_locs)}"
+        # Check that the lookup functions were called for both SR2 and SR3.
+        assert len(inherited_calls) == 2, f"Expected inherited lookup to be called twice, got {len(inherited_calls)}"
+        assert len(class_context_calls) == 2, f"Expected class context lookup to be called twice, got {len(class_context_calls)}"
+
+    def test_get_bug_loc_skips_invalid_class_context(self, monkeypatch):
+        sb = SearchBackend(project_path="dummy_project")
+        bug_location_dict = {
+            "file": "dummy.py",
+            "method": "TestMethod",
+            "class": "TestClass",
+            "intended_behavior": "intended behavior"
+        }
+        
+        # Fake search_method_in_class returns one valid result.
+        valid_sr = SearchResult("dummy.py", 10, 20, "TestClass", "TestMethod", "snippet")
+        def fake_search_method_in_class(method, cls):
+            return ("output", [valid_sr], True)
+        sb.search_method_in_class = fake_search_method_in_class
+        
+        # Ensure _get_inherited_methods returns no additional results (to isolate class context branch).
+        sb._get_inherited_methods = lambda cls, method: ("", [], True)
+        
+        # Patch search_class_in_file to return one invalid SearchResult (e.g. missing start).
+        def fake_search_class_in_file(cls, file):
+            # Return a result with missing start (invalid for BugLocation conversion).
+            invalid_sr = SearchResult("dummy.py", None, 30, "TestClass", None, "class snippet")
+            return ("class output", [invalid_sr], True)
+        sb.search_class_in_file = fake_search_class_in_file
+        
+        # Disable fallback searches.
+        sb.search_method_in_file = lambda m, f: ("", [], False)
+        sb.get_class_full_snippet = lambda cls: ("", [], False)
+        sb.search_method = lambda m: ("", [], False)
+        sb.get_file_content = lambda f: ("", [], False)
+        
+        # Patch get_code_snippets to avoid file I/O.
+        monkeypatch.setattr(
+            "app.search.search_backend.search_utils.get_code_snippets",
+            lambda fname, start, end, with_lineno=True: "dummy snippet"
+        )
+        
+        bug_locs = sb.get_bug_loc_snippets_new(bug_location_dict)
+        
+        # Explanation:
+        # - The valid SearchResult from fake_search_method_in_class is added to search_res and converted into a BugLocation.
+        # - Its corresponding call to fake_search_class_in_file returns an invalid SearchResult (start is None).
+        # - In the final loop over class_context_search_res, the invalid SearchResult is skipped.
+        # - Hence, only one valid BugLocation (from the valid search_result) is returned.
+        
+        assert len(bug_locs) == 1, f"Expected 1 bug location, got {len(bug_locs)}"
