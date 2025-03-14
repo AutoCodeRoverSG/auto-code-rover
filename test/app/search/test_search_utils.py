@@ -168,22 +168,22 @@ def test_get_code_region_containing_code(tmp_path):
     temp_file = tmp_path / "sample.txt"
     temp_file.write_text(file_content)
 
-    # The string(s) to search for in the file.
+    # The strings to search for in the file.
     code_str_dict = {
         "case_1": "line 4",
         "case_2": "line 2",
         "case_3": "line 6",
     }
 
-    # The matched line number(s)
+    # The matched line numbers (0-based index) for the occurrence.
     matched_line_no_dict = {
         "case_1": 3,
         "case_2": 1,
         "case_3": 5,
     }
 
-    # The expected result(s))
-    expected_context_dict = {
+    # Expected context when with_lineno is True.
+    expected_context_with_lineno = {
         "case_1": (
             "1 line 1\n"
             "2 line 2\n"
@@ -209,23 +209,28 @@ def test_get_code_region_containing_code(tmp_path):
         ),
     }
 
+    # Expected context when with_lineno is False.
+    expected_context_without_lineno = {
+        "case_1": "line 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7",
+        "case_2": "line 1\nline 2\nline 3\nline 4\nline 5",
+        "case_3": "line 3\nline 4\nline 5\nline 6\nline 7",
+    }
+
     for case, code_str in code_str_dict.items():
-        # Call the FUT.
-        occurrences = get_code_region_containing_code(str(temp_file), code_str)
-
-        # Verify that we got one occurrence.
-        assert len(occurrences) == 1
-
-        # Extract the matched starting line number (0-based) and context.
-        matched_line_no, context = occurrences[0]
-
-        # The matched string "line 4" starts on the fourth line, which means a 0-based index of 3.
+        # Test with with_lineno=True.
+        occurrences_with = get_code_region_containing_code(str(temp_file), code_str, with_lineno=True)
+        assert len(occurrences_with) == 1
+        matched_line_no, context_with = occurrences_with[0]
         assert matched_line_no == matched_line_no_dict[case]
+        assert context_with == expected_context_with_lineno[case]
 
-        # Given context_size=3 (fixed inside the FUT), we expect the context to include three lines before and after the matched line.
-        # In this file (7 lines total), that should be all lines.
-        expected_context = expected_context_dict[case]
-        assert context == expected_context
+        # Test with with_lineno=False.
+        occurrences_without = get_code_region_containing_code(str(temp_file), code_str, with_lineno=False)
+        assert len(occurrences_without) == 1
+        matched_line_no2, context_without = occurrences_without[0]
+        assert matched_line_no2 == matched_line_no_dict[case]
+        assert context_without == expected_context_without_lineno[case]
+
 
 def test_get_func_snippet_with_hello(tmp_path):
     # Create a temporary Python file with two function definitions.
@@ -388,8 +393,29 @@ def test_extract_func_sig_multiline_signature():
     expected = [1, 2, 3]
     assert sig_lines == expected, f"Expected {expected} but got {sig_lines}"
 
+
+def test_extract_func_sig_no_body():
+    import ast
+    # Create a dummy function node with no body.
+    func_node = ast.FunctionDef(
+        name="no_body_func",
+        args=ast.arguments(
+            posonlyargs=[], args=[], vararg=None,
+            kwonlyargs=[], kw_defaults=[], kwarg=None, defaults=[]
+        ),
+        body=[],  # Force empty body
+        decorator_list=[],
+        returns=None,
+        lineno=10,
+        col_offset=0,
+        end_lineno=10  # Manually set end_lineno for testing.
+    )
+    # When there is no body, the function uses func_ast.end_lineno.
+    sig_lines = extract_func_sig_from_ast(func_node)
+    expected = [10]  # Signature should only include the line number 10.
+    assert sig_lines == expected, f"Expected {expected} but got {sig_lines}"
+
 # --- Test extract class signature ---
-# TODO: clarify corret behavior of extract_class_sig_from_ast
 def test_extract_class_sig_simple():
     # A simple class with a single method
     file_content = textwrap.dedent("""\
@@ -462,8 +488,44 @@ def test_extract_class_sig_with_method_and_assignment():
     expected = [1, 2, 2, 3, 5] # TODO: clarify corret behavior of extract_class_sig_from_ast
     assert sig_lines == expected, f"Expected {expected}, but got {sig_lines}"
 
-# TODO: clarify corret behavior of get_class_signature (bugged due to extract_class_sig_from_ast?)
-# TODO: if bug exists, fix it and update the test cases below (replace result == result with result == expected)
+def test_extract_class_sig_no_body():
+    import ast
+    # Create a dummy ClassDef node with an empty body.
+    empty_class = ast.ClassDef(
+        name="EmptyClass",
+        bases=[],
+        keywords=[],
+        body=[],  # empty body to force the else branch.
+        decorator_list=[],
+        lineno=5,
+        col_offset=0,
+        end_lineno=5  # manually set end_lineno for testing.
+    )
+    sig_lines = extract_class_sig_from_ast(empty_class)
+    # When there is no body, sig_end_line is taken from end_lineno.
+    expected = [5]  # Signature should only include line 5.
+    assert sig_lines == expected, f"Expected {expected} but got {sig_lines}"
+
+def test_extract_class_sig_with_expr_statement():
+    import ast, textwrap
+    # Create a class with a stray expression in the body (e.g. a string literal).
+    source = textwrap.dedent("""\
+        class Dummy:
+            "This is a stray expression"
+    """)
+    tree = ast.parse(source)
+    class_node = next(node for node in ast.walk(tree) if isinstance(node, ast.ClassDef))
+    sig_lines = extract_class_sig_from_ast(class_node)
+    # Analysis:
+    # - sig_start_line = 1.
+    # - The class has a body, so body_start_line = 2, therefore sig_end_line = 2 - 1 = 1.
+    #   Thus, the initial signature is [1].
+    # - Then, iterating over class_node.body, the only statement is an Expr (the stray string),
+    #   which is not an instance of FunctionDef or Assign, so nothing is added.
+    expected = [1]
+    assert sig_lines == expected, f"Expected {expected}, but got {sig_lines}"
+
+
 def test_get_class_signature_simple(tmp_path):
     # Create a temporary Python file with a simple class definition.
     file_content = textwrap.dedent("""\
