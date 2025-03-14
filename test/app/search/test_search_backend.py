@@ -228,6 +228,14 @@ class TestSearchBackend:
         assert res.class_name == "TestClass"
         assert res.func_name == "func"
         assert res.code == expected_code
+
+        # case where class_name is not in self.class_func_index
+        results = sb._search_func_in_class("func", "NonExistingClass")
+        assert results == []
+
+        # case where class_name is in, but function_name is not in self.class_func_index[class_name]
+        results = sb._search_func_in_class("NonExistingFunc", "TestClass")
+        assert results == []
     
     def test_search_func_in_all_classes(self, monkeypatch):
         monkeypatch.setattr(
@@ -314,6 +322,10 @@ class TestSearchBackend:
         assert res.class_name is None
         assert res.func_name == "top_func"
         assert res.code == expected_code
+
+        # case where function_name is not in self.function_index
+        results = sb._search_top_level_func("NonExistingFunc")
+        assert results == []
 
     def test_search_func_in_code_base(self, tmp_path, monkeypatch):
         from app.search.search_backend import SearchBackend, SearchResult
@@ -436,6 +448,57 @@ class TestSearchBackend:
         assert result == expected_message
         assert search_res == []
         assert flag is False
+
+    def test_get_class_full_snippet_empty_class_index(self):
+        # Create a SearchBackend instance with an empty list for class "A".
+        sb = SearchBackend(project_path="dummy_project")
+        sb.class_index = {"A": []}  # key exists, but no occurrences
+
+        # Call get_class_full_snippet for class "A".
+        result, search_res, flag = sb.get_class_full_snippet("A")
+        
+        # Expect a message indicating that the class was not found, no search results, and flag False.
+        expected_message = "Could not find class A in the codebase."
+        assert result == expected_message
+        assert search_res == []
+        assert flag is False
+
+    def test_get_class_full_snippet_too_many_results(self, monkeypatch):
+        sb = SearchBackend(project_path="dummy_project")
+        
+        # Set up class_index with three occurrences of class "A"
+        sb.class_index = {
+            "A": [
+                ("/absolute/path/fileA.py", (1, 10)),
+                ("/absolute/path/fileB.py", (11, 20)),
+                ("/absolute/path/fileC.py", (21, 30)),
+            ]
+        }
+        
+        # Monkey-patch get_code_snippets to return a dummy snippet.
+        monkeypatch.setattr(
+            "app.search.search_backend.search_utils.get_code_snippets",
+            lambda file_path, start, end, with_lineno=True: f"dummy code snippet from {file_path} lines {start}-{end}"
+        )
+        
+        # Monkey-patch SearchResult.to_tagged_str to return a predictable string.
+        monkeypatch.setattr(
+            SearchResult, "to_tagged_str",
+            lambda self, project_path: f"tagged snippet from {self.file_path} {self.start}-{self.end}"
+        )
+        
+        # Call get_class_full_snippet for class "A".
+        result, search_res, flag = sb.get_class_full_snippet("A")
+        
+        # Verify that flag is True
+        assert flag is True
+        
+        # Verify that the search results are truncated to 2 even though there are 3 entries.
+        assert len(search_res) == 2
+        
+        # Verify that the message for too many results is included.
+        assert "Too many results, showing full code for 2 of them:" in result
+
     
     def test_get_class_full_snippet_found(self, monkeypatch):
 
