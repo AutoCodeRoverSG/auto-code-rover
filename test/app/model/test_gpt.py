@@ -37,17 +37,6 @@ class DummyCompletions:
     def create(self, *args, **kwargs):
         DummyCompletions.last_kwargs = kwargs  # capture the kwargs passed in
         return DummyResponse()
-    
-# Create a dummy client that raises BadRequestError.
-class DummyBadRequestCompletions:
-    def create(self, *args, **kwargs):
-        raise BadRequestError("error", code="context_length_exceeded")
-    
-class DummyBadRequestClientChat:
-    completions = DummyBadRequestCompletions()
-
-class DummyBadRequestClient:
-    chat = DummyBadRequestClientChat()
 
 # Dummy client chat now includes a completions attribute.
 class DummyClientChat:
@@ -307,20 +296,9 @@ def test_call_single_tool_branch(monkeypatch):
 
 # Define a dummy error class to simulate BadRequestError with a code attribute.
 class DummyBadRequestError(BadRequestError):
-    def __init__(self, message, code):
+    def __init__(self, message):
         # Do not call super().__init__ to avoid unexpected keyword errors.
-        self.code = code
         self.message = message
-
-# Global flag to capture log_and_print invocation.
-log_and_print_called = False
-# Global flag to capture log_and_print invocation.
-log_and_print_called = False
-
-def dummy_log_and_print(message):
-    global log_and_print_called
-    log_and_print_called = True
-    print(f"dummy_log_and_print called with message: {message}")
 
 class DummyThreadCost:
     process_cost = 0.0
@@ -336,11 +314,20 @@ def dummy_retry(*args, **kwargs):
     print("dummy_retry decorator applied")
     return lambda f: f
 
+# Define a dummy response object with the required attributes.
+class DummyResponseObject:
+    request = "dummy_request"
+    status_code = 400  # Provide a dummy status code.
+    headers = {"content-type": "application/json"}
+
 # Create a dummy client that always raises BadRequestError.
 class DummyBadRequestCompletions:
     def create(self, *args, **kwargs):
         print("DummyBadRequestCompletions.create called")
-        raise BadRequestError("error", code="context_length_exceeded")
+        # Instantiate a BadRequestError with a dummy response object.
+        err = BadRequestError("error", response=DummyResponseObject(), body={})
+        err.code = "context_length_exceeded"
+        raise err
 
 class DummyBadRequestClientChat:
     completions = DummyBadRequestCompletions()
@@ -348,10 +335,31 @@ class DummyBadRequestClientChat:
 class DummyBadRequestClient:
     chat = DummyBadRequestClientChat()
 
-def test_call_bad_request(monkeypatch):
-    global log_and_print_called
-    log_and_print_called = False
+# Create a dummy client that always raises BadRequestError, with a different 'code' message.
+class DummyBadRequestCompletionsOther:
+    def create(self, *args, **kwargs):
+        print("DummyBadRequestCompletionsOther.create called")
+        # Instantiate a BadRequestError with a dummy response object.
+        err = BadRequestError("error", response=DummyResponseObject(), body={})
+        err.code = "some_other_code"
+        raise err
 
+class DummyBadRequestClientChatOther:
+    completions = DummyBadRequestCompletionsOther()
+
+class DummyBadRequestClientOther:
+    chat = DummyBadRequestClientChatOther()
+
+def extract_exception_chain(exc):
+    """Utility to walk the __cause__ chain and return a list of exceptions."""
+    chain = [exc]
+    while exc.__cause__ is not None:
+        exc = exc.__cause__
+        chain.append(exc)
+    return chain
+
+def test_call_bad_request(monkeypatch):
+    # Do not patch log_and_print so that the actual lines in the except block execute.
     # Disable sleep functions so that no real delays occur.
     monkeypatch.setattr("tenacity.sleep", dummy_sleep)
     monkeypatch.setattr(time, "sleep", dummy_sleep)
@@ -363,10 +371,7 @@ def test_call_bad_request(monkeypatch):
     # Replace common.thread_cost with our dummy instance.
     monkeypatch.setattr(common, "thread_cost", DummyThreadCost())
 
-    # Patch log_and_print (imported from app.log) to record its call.
-    monkeypatch.setattr("app.log.log_and_print", dummy_log_and_print)
-
-    # Create a dummy client that always raises DummyBadRequestError.
+    # Create a dummy client that always raises BadRequestError.
     model = Gpt_o1()
     model.client = DummyBadRequestClient()
 
@@ -375,12 +380,39 @@ def test_call_bad_request(monkeypatch):
     print("Calling model.call with messages:", messages)
     with pytest.raises(RetryError) as exc_info:
         model.call(messages, temperature=1.0)
-    # Extract the exception from the final attempt.
-    last_exception = exc_info.value.last_attempt.exception()
-    print("Last exception caught:", last_exception)
     
-    # Verify that the last exception has the expected code.
-    assert isinstance(last_exception, RetryError)
-    # assert last_exception.code == "context_length_exceeded"
-    # # Verify that our dummy log_and_print was invoked.
-    # assert log_and_print_called
+    # Extract the last exception from the RetryError chain.
+    last_exc = exc_info.value.last_attempt.exception()
+    print("Final exception from last attempt:", last_exc)
+    
+    # Walk the cause chain to see if BadRequestError is present.
+    chain = extract_exception_chain(last_exc)
+    for i, e in enumerate(chain):
+        print(f"Exception in chain [{i}]: type={type(e)}, message={getattr(e, 'message', str(e))}, code={getattr(e, 'code', None)}")
+    
+    # Assert that one exception in the chain is a BadRequestError with the expected code.
+    found = any(isinstance(e, BadRequestError) and getattr(e, "code", None) == "context_length_exceeded"
+                for e in chain)
+    assert found, "BadRequestError with expected code not found in exception chain."
+
+    # Other tests with different error codes.
+    model.client = DummyBadRequestClientOther()
+    messages = [{"role": "user", "content": "Hello"}]
+    
+    print("Calling model.call with messages:", messages)
+    with pytest.raises(RetryError) as exc_info:
+        model.call(messages, temperature=1.0)
+    
+    # Extract the last exception from the RetryError chain.
+    last_exc = exc_info.value.last_attempt.exception()
+    print("Final exception from last attempt:", last_exc)
+    
+    # Walk the cause chain to see if BadRequestError is present.
+    chain = extract_exception_chain(last_exc)
+    for i, e in enumerate(chain):
+        print(f"Exception in chain [{i}]: type={type(e)}, message={getattr(e, 'message', str(e))}, code={getattr(e, 'code', None)}")
+    
+    # Assert that one exception in the chain is a BadRequestError with the expected code.
+    found = any(isinstance(e, BadRequestError) and getattr(e, "code", None) == "some_other_code"
+                for e in chain)
+    assert found, "BadRequestError with expected code not found in exception chain."
