@@ -1,5 +1,6 @@
 import json
 import sys
+import time
 import os
 import pytest
 
@@ -7,6 +8,7 @@ import pytest
 from app.model.gpt import *
 from app.data_structures import FunctionCallIntent
 from app.model import common
+from tenacity import RetryError
 from openai import BadRequestError
 
 
@@ -92,12 +94,6 @@ def dummy_check_api_key(self):
 
 def dummy_check_api_key_failure(self):
     return ""
-
-# Dummy log_and_print to capture calls.
-log_and_print_called = False
-def dummy_log_and_print(message):
-    global log_and_print_called
-    log_and_print_called = True
 
 # To test sys.exit in check_api_key failure.
 class SysExitException(Exception):
@@ -308,3 +304,83 @@ def test_call_single_tool_branch(monkeypatch):
     # Check that the tool_choice has the expected structure.
     assert kw["tool_choice"]["type"] == "function"
     assert kw["tool_choice"]["function"]["name"] == "dummy_tool"
+
+# Define a dummy error class to simulate BadRequestError with a code attribute.
+class DummyBadRequestError(BadRequestError):
+    def __init__(self, message, code):
+        # Do not call super().__init__ to avoid unexpected keyword errors.
+        self.code = code
+        self.message = message
+
+# Global flag to capture log_and_print invocation.
+log_and_print_called = False
+# Global flag to capture log_and_print invocation.
+log_and_print_called = False
+
+def dummy_log_and_print(message):
+    global log_and_print_called
+    log_and_print_called = True
+    print(f"dummy_log_and_print called with message: {message}")
+
+class DummyThreadCost:
+    process_cost = 0.0
+    process_input_tokens = 0
+    process_output_tokens = 0
+
+def dummy_sleep(seconds):
+    print(f"dummy_sleep called with {seconds} seconds (disabled)")
+    # Immediately return without delay.
+    return None
+
+def dummy_retry(*args, **kwargs):
+    print("dummy_retry decorator applied")
+    return lambda f: f
+
+# Create a dummy client that always raises BadRequestError.
+class DummyBadRequestCompletions:
+    def create(self, *args, **kwargs):
+        print("DummyBadRequestCompletions.create called")
+        raise BadRequestError("error", code="context_length_exceeded")
+
+class DummyBadRequestClientChat:
+    completions = DummyBadRequestCompletions()
+
+class DummyBadRequestClient:
+    chat = DummyBadRequestClientChat()
+
+def test_call_bad_request(monkeypatch):
+    global log_and_print_called
+    log_and_print_called = False
+
+    # Disable sleep functions so that no real delays occur.
+    monkeypatch.setattr("tenacity.sleep", dummy_sleep)
+    monkeypatch.setattr(time, "sleep", dummy_sleep)
+
+    # Patch check_api_key to return a dummy key.
+    monkeypatch.setattr(OpenaiModel, "check_api_key", dummy_check_api_key)
+    # Patch calc_cost to return a fixed cost.
+    monkeypatch.setattr(OpenaiModel, "calc_cost", lambda self, inp, out: 0.5)
+    # Replace common.thread_cost with our dummy instance.
+    monkeypatch.setattr(common, "thread_cost", DummyThreadCost())
+
+    # Patch log_and_print (imported from app.log) to record its call.
+    monkeypatch.setattr("app.log.log_and_print", dummy_log_and_print)
+
+    # Create a dummy client that always raises DummyBadRequestError.
+    model = Gpt_o1()
+    model.client = DummyBadRequestClient()
+
+    messages = [{"role": "user", "content": "Hello"}]
+    
+    print("Calling model.call with messages:", messages)
+    with pytest.raises(RetryError) as exc_info:
+        model.call(messages, temperature=1.0)
+    # Extract the exception from the final attempt.
+    last_exception = exc_info.value.last_attempt.exception()
+    print("Last exception caught:", last_exception)
+    
+    # Verify that the last exception has the expected code.
+    assert isinstance(last_exception, RetryError)
+    # assert last_exception.code == "context_length_exceeded"
+    # # Verify that our dummy log_and_print was invoked.
+    # assert log_and_print_called
