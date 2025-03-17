@@ -7,8 +7,6 @@ from tempfile import TemporaryDirectory
 
 from app.search.search_backend import LineRange, SearchBackend, SearchResult, RESULT_SHOW_LIMIT, BugLocation
 
-# Prevent pytest from collecting the if __name__ == "__main__": entry point.
-SearchBackend.__test__ = False
 
 #######################################
 ### Dummy Functions ###################
