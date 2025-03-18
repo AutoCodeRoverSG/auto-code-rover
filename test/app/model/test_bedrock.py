@@ -91,3 +91,16 @@ def test_bedrock_model_call(monkeypatch, model_class):
     else:
         assert content_json == "Test response"
     print(f"Bedrock model {model_class.__name__} passed call tests.")
+
+
+# --- Introduce a problematic statement inside the test files to check if SonarQube catches issues inside test code
+# --- This statement is not a problem in the actual codebase.
+# --- Returning hash as a string to check if SonarQube catches this issue.
+
+class SomeClass:
+    def __init__(self):
+        self.foo = "foo"
+        self.bar = "bar"
+    
+    def __hash__(self):
+        return 'hash((self.foo, self.bar))'
