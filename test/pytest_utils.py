@@ -36,3 +36,30 @@ class DummyTask(Task):
     @property
     def project_path(self):
         return self._project_path
+
+
+
+# --- Section for common classes used when testing Models
+# from test.pytest_utils import *
+
+# --- Dummy Response Object for BadRequestError ---
+class DummyResponseObject:
+    request = "dummy_request"
+    status_code = 400  # Provide a dummy status code.
+    headers = {"content-type": "application/json"}
+
+class DummyThreadCost:
+    process_cost = 0.0
+    process_input_tokens = 0
+    process_output_tokens = 0
+
+
+# --- Dummy functions ---
+def dummy_check_api_key(self):
+    print("dummy_check_api_key called")
+    return "dummy-key"
+
+def dummy_sleep(seconds):
+    print(f"dummy_sleep called with {seconds} seconds (disabled)")
+    return None
+

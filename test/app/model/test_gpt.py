@@ -4,12 +4,12 @@ import time
 import os
 import pytest
 
-# Import the classes we want to test.
 from app.model.gpt import *
 from app.data_structures import FunctionCallIntent
 from app.model import common
-from tenacity import RetryError
 from openai import BadRequestError
+from tenacity import RetryError
+from test.pytest_utils import *
 
 
 # Dummy classes to simulate the OpenAI response.
@@ -300,55 +300,27 @@ class DummyBadRequestError(BadRequestError):
         # Do not call super().__init__ to avoid unexpected keyword errors.
         self.message = message
 
-class DummyThreadCost:
-    process_cost = 0.0
-    process_input_tokens = 0
-    process_output_tokens = 0
 
-def dummy_sleep(seconds):
-    print(f"dummy_sleep called with {seconds} seconds (disabled)")
-    # Immediately return without delay.
-    return None
-
-def dummy_retry(*args, **kwargs):
-    print("dummy_retry decorator applied")
-    return lambda f: f
-
-# Define a dummy response object with the required attributes.
-class DummyResponseObject:
-    request = "dummy_request"
-    status_code = 400  # Provide a dummy status code.
-    headers = {"content-type": "application/json"}
-
-# Create a dummy client that always raises BadRequestError.
+# Parameterized dummy completions that always raises BadRequestError with the provided code.
 class DummyBadRequestCompletions:
+    def __init__(self, code: str):
+        self.code = code
+
     def create(self, *args, **kwargs):
-        print("DummyBadRequestCompletions.create called")
-        # Instantiate a BadRequestError with a dummy response object.
+        print(f"DummyBadRequestCompletions.create called with code {self.code}")
         err = BadRequestError("error", response=DummyResponseObject(), body={})
-        err.code = "context_length_exceeded"
+        err.code = self.code
         raise err
 
+# Dummy client chat that holds an instance of the dummy completions.
 class DummyBadRequestClientChat:
-    completions = DummyBadRequestCompletions()
+    def __init__(self, code: str):
+        self.completions = DummyBadRequestCompletions(code)
 
+# Dummy client that uses the dummy client chat.
 class DummyBadRequestClient:
-    chat = DummyBadRequestClientChat()
-
-# Create a dummy client that always raises BadRequestError, with a different 'code' message.
-class DummyBadRequestCompletionsOther:
-    def create(self, *args, **kwargs):
-        print("DummyBadRequestCompletionsOther.create called")
-        # Instantiate a BadRequestError with a dummy response object.
-        err = BadRequestError("error", response=DummyResponseObject(), body={})
-        err.code = "some_other_code"
-        raise err
-
-class DummyBadRequestClientChatOther:
-    completions = DummyBadRequestCompletionsOther()
-
-class DummyBadRequestClientOther:
-    chat = DummyBadRequestClientChatOther()
+    def __init__(self, code: str):
+        self.chat = DummyBadRequestClientChat(code)
 
 def extract_exception_chain(exc):
     """Utility to walk the __cause__ chain and return a list of exceptions."""
@@ -373,7 +345,7 @@ def test_call_bad_request(monkeypatch):
 
     # Create a dummy client that always raises BadRequestError.
     model = Gpt_o1()
-    model.client = DummyBadRequestClient()
+    model.client = DummyBadRequestClient("context_length_exceeded")
 
     messages = [{"role": "user", "content": "Hello"}]
     
@@ -396,7 +368,7 @@ def test_call_bad_request(monkeypatch):
     assert found, "BadRequestError with expected code not found in exception chain."
 
     # Other tests with different error codes.
-    model.client = DummyBadRequestClientOther()
+    model.client = DummyBadRequestClient("some_other_code")
     messages = [{"role": "user", "content": "Hello"}]
     
     print("Calling model.call with messages:", messages)
