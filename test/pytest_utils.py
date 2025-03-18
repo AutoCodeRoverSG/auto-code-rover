@@ -3,6 +3,7 @@ from pathlib import Path
 
 from app.data_structures import MessageThread
 from app.task import Task
+from openai import BadRequestError
 
 # --- Dummy helper classes ---
 class DummyMessageThread(MessageThread):
@@ -97,6 +98,45 @@ class DummyThreadCost:
 # To test sys.exit in check_api_key failure.
 class SysExitException(Exception):
     pass
+
+# --- For testing BadRequestError handling ---
+# expect RetryError as the last in the error chain, with BadRequestError before it
+
+# Define a dummy error class to simulate BadRequestError with a code attribute.
+class DummyBadRequestError(BadRequestError):
+    def __init__(self, message):
+        # Do not call super().__init__ to avoid unexpected keyword errors.
+        self.message = message
+
+# Parameterized dummy completions that always raises BadRequestError with the provided code.
+class DummyBadRequestCompletions:
+    def __init__(self, code: str):
+        self.code = code
+
+    def create(self, *args, **kwargs):
+        print(f"DummyBadRequestCompletions.create called with code {self.code}")
+        err = BadRequestError("error", response=DummyResponseObject(), body={})
+        err.code = self.code
+        raise err
+
+# Dummy client chat that holds an instance of the dummy completions.
+class DummyBadRequestClientChat:
+    def __init__(self, code: str):
+        self.completions = DummyBadRequestCompletions(code)
+
+# Dummy client that uses the dummy client chat.
+class DummyBadRequestClient:
+    def __init__(self, code: str):
+        self.chat = DummyBadRequestClientChat(code)
+
+# Utility to extract the exception chain for inspection.
+def extract_exception_chain(exc):
+    """Utility to walk the __cause__ chain and return a list of exceptions."""
+    chain = [exc]
+    while exc.__cause__ is not None:
+        exc = exc.__cause__
+        chain.append(exc)
+    return chain
 
 # --- Section for dummy functions ---
 def dummy_check_api_key(self):
