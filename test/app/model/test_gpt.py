@@ -38,16 +38,7 @@ class DummyOpenAI:
     def __init__(self, api_key):
         self.api_key = api_key
 
-# Dummy check_api_key function.
-def dummy_check_api_key(self):
-    return "dummy-key"
-
-def dummy_check_api_key_failure(self):
-    return ""
-
-
 # -- Tests for setup ---
-
 def test_setup_initializes_client(monkeypatch):
     # Patch check_api_key to return a dummy key.
     monkeypatch.setattr(Gpt_o1, "check_api_key", dummy_check_api_key)
