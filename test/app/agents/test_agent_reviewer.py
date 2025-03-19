@@ -17,22 +17,6 @@ from app.model import common
 from test.pytest_utils import *  # Import any test helper utilities
 
 ###############################################################################
-# Dummy Model for Testing
-###############################################################################
-class DummyModel:
-    def __init__(self, responses):
-        self.responses = responses  # a list of response strings
-        self.call_count = 0
-
-    def setup(self):
-        pass
-
-    def call(self, messages, **kwargs):
-        response = self.responses[self.call_count]
-        self.call_count += 1
-        return (response,)
-
-###############################################################################
 # Tests for extract_review_result
 ###############################################################################
 def test_extract_review_result_valid():

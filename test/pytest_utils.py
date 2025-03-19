@@ -38,6 +38,22 @@ class DummyTask(Task):
     def project_path(self):
         return self._project_path
 
+###############################################################################
+# Dummy Model for Testing
+###############################################################################
+class DummyModel:
+    def __init__(self, responses):
+        self.responses = responses  # a list of response strings
+        self.call_count = 0
+
+    def setup(self):
+        pass
+
+    def call(self, messages, **kwargs):
+        response = self.responses[self.call_count]
+        self.call_count += 1
+        return (response,)
+    
 
 
 # --- Section for common classes used when testing Models

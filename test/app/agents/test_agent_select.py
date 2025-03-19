@@ -5,20 +5,6 @@ from app.model import common
 from app.agents.agent_select import run 
 from test.pytest_utils import *  # Import any helper utilities
 
-# Dummy model to simulate responses.
-class DummyModel:
-    def __init__(self, responses):
-        self.responses = responses  # a list of response strings
-        self.call_count = 0
-
-    def setup(self):
-        pass
-
-    def call(self, messages, **kwargs):
-        response = self.responses[self.call_count]
-        self.call_count += 1
-        return (response,)
-
 def test_run_pr_review():
     """
     Test the run function for pull request review.
