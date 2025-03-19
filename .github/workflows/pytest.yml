@@ -5,7 +5,7 @@ on:
     branches:
       - main
       - pytest-ci
-      - pytest-unit
+      - pytest-latest
   pull_request:
     branches:
       - main
