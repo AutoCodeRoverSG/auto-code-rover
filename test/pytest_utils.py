@@ -17,9 +17,9 @@ class DummyMessageThread(MessageThread):
 
 
 class DummyTask(Task):
-    def __init__(self):
-        # Provide necessary dummy state
-        self._project_path = "dummy_project"
+    def __init__(self, project_path="dummy_project", issue="dummy issue"):
+        # Allow project_path to be specified; default to "dummy_project"
+        self._project_path = project_path
 
     def get_issue_statement(self):
         return "dummy issue statement"
