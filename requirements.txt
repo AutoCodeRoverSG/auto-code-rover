@@ -44,7 +44,7 @@ jsonschema==4.22.0
 jsonschema-specifications==2023.12.1
 libclang==18.1.1
 linkify-it-py==2.0.2
-litellm==1.44.8
+litellm==1.53.1.dev1
 loguru==0.7.2
 lxml==5.1.0
 markdown-it-py==3.0.0
