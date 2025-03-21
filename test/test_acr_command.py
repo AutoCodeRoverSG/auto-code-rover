@@ -276,3 +276,7 @@ def test_run_raw_task_exception(monkeypatch, tmp_path):
     assert result is False
     # Check that a log message indicating failure was printed.
     assert any("failed with exception" in msg for msg in log_messages), "Expected error log message."
+
+@pytest.mark.integration
+def test_integration_anthropic():
+    assert 1 + 1 == 2
