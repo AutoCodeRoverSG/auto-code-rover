@@ -54,6 +54,7 @@ jobs:
           elif [[ "${{ github.ref }}" == "refs/heads/pytest-integration" ]]; then
             echo "Running integration tests only."
             tox -e integration
+          fi
 
       - name: Check Coverage Report Exists
         run: |
