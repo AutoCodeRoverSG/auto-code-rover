@@ -4,8 +4,8 @@ on:
   push:
     branches:
       - main
-      - pytest-ci
-      - pytest-latest
+      - pytest-unit
+      - pytest-integration
   pull_request:
     branches:
       - main
