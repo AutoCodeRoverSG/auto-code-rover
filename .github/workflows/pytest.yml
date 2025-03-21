@@ -42,7 +42,8 @@ jobs:
         run: conda install -y tox
 
       - name: Run tox tests
-        run: tox
+        run: tox -e unit
+        # tox -e integration will run the integration tests (invoking real API calls)
 
       - name: Check Coverage Report Exists
         run: |
