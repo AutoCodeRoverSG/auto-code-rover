@@ -2,6 +2,10 @@ import json
 import sys
 from pathlib import Path
 import pytest
+import os
+import subprocess
+import platform
+import threading
 
 # Global dictionary to track function calls.
 call_tracker = {
@@ -278,5 +282,68 @@ def test_run_raw_task_exception(monkeypatch, tmp_path):
     assert any("failed with exception" in msg for msg in log_messages), "Expected error log message."
 
 @pytest.mark.integration
-def test_integration_anthropic():
-    assert 1 + 1 == 2
+def test_anthropic_api_integration():
+    # Log system environment details.
+    print("=== System Environment Details ===")
+    print("Python version:", sys.version)
+    print("Platform:", platform.platform())
+    print("Current working directory:", os.getcwd())
+    
+    # Log selected environment variables.
+    keys_to_log = ["ANTHROPIC_API_KEY", "OPENAI_KEY", "GROQ_API_KEY", "PYTHONPATH", "PATH"]
+    for key in keys_to_log:
+        print(f"{key}: {os.environ.get(key)}")
+    
+    # List all installed packages
+    print("=== Installed Packages (pip freeze) ===")
+    pip_result = subprocess.run("pip freeze", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    print(pip_result.stdout)
+    print("=== End Installed Packages ===\n")
+
+    # # Setup
+    # # export PYTHONPATH=$(pwd)
+    # setup_command = "export PYTHONPATH=$(pwd)"
+    # print("Running setup command:", setup_command)
+    # subprocess.run(setup_command, shell=True, text=True)
+    
+    # Step 1: Export a dummy Anthropi key into the environment.
+    dummy_key = "sk-ant-dummy"
+    os.environ["ANTHROPIC_API_KEY"] = dummy_key
+    print("Set ANTHROPIC_API_KEY to dummy value for testing.")
+    # export ANTHROPIC_API_KEY=sk-ant-dummy
+    
+    # Step 2: Construct the command to run.
+    command = "conda run -n auto-code-rover env PYTHONPATH=$(pwd) python app/main.py github-issue --output-dir output --setup-dir setup --model claude-3-haiku-20240307 --model-temperature 0.2 --task-id langchain-20453 --clone-link https://github.com/langchain-ai/langchain.git --commit-hash cb6e5e5 --issue-link https://github.com/langchain-ai/langchain/issues/20453"
+    print("Running command:", command)
+    
+    # Step 3: Run the command and capture stdout and stderr.
+    result = subprocess.run(
+        command,
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+    
+    # Step 4: Log the captured output and error.
+    print("=== Command Output ===")
+    print("STDOUT:")
+    print(result.stdout)
+    print("STDERR:")
+    print(result.stderr)
+    print("=== End Command Output ===\n")
+    
+    # Step 5: Assert based on expected outcome.
+    # For a dummy key, we expect the API call to fail with an "Invalid API key" error message.
+    expected_error_message = "AuthenticationError"
+    if os.environ["ANTHROPIC_API_KEY"] == dummy_key:
+        assert (expected_error_message in result.stderr or expected_error_message in result.stdout), (
+            f"Test failed: Expected error message '{expected_error_message}' not found.\n"
+            f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+        )
+    else:
+        # For a real key scenario, you could assert a placeholder success message.
+        expected_success_message = "Operation completed"
+        assert expected_success_message in result.stdout, (
+            f"Test failed: Expected success message '{expected_success_message}' not found."
+        )
