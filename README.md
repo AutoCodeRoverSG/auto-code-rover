@@ -338,6 +338,10 @@ The current list of supported models:
 
 Please refer to [EXPERIMENT.md](EXPERIMENT.md) for information on experiment replication.
 
+## Testing
+
+Please refer to [TESTING.md](TESTING.md) for information on setting up and running tests.
+
 ## ✉️ Contacts
 
 For any queries, you are welcome to open an issue.

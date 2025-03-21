@@ -44,7 +44,7 @@ jsonschema==4.22.0
 jsonschema-specifications==2023.12.1
 libclang==18.1.1
 linkify-it-py==2.0.2
-litellm==1.44.8
+litellm
 loguru==0.7.2
 lxml==5.1.0
 markdown-it-py==3.0.0
@@ -72,7 +72,7 @@ nvidia-nccl-cu12==2.19.3
 nvidia-nvjitlink-cu12==12.4.99
 nvidia-nvtx-cu12==12.1.105
 ollama==0.3.3
-openai==1.50.2
+openai
 opt-einsum==3.3.0
 packaging==23.2
 platformdirs==4.1.0
