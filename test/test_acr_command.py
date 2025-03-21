@@ -282,19 +282,7 @@ def test_run_raw_task_exception(monkeypatch, tmp_path):
     assert any("failed with exception" in msg for msg in log_messages), "Expected error log message."
 
 @pytest.mark.integration
-def test_anthropic_api_integration():
-    # Log system environment details.
-    print("=== System Environment Details ===")
-    print("Python version:", sys.version)
-    print("Platform:", platform.platform())
-    print("Current working directory:", os.getcwd())
-    
-    # List all installed packages
-    print("=== Installed Packages (pip freeze) ===")
-    pip_result = subprocess.run("pip freeze", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    print(pip_result.stdout)
-    print("=== End Installed Packages ===\n")
-    
+def test_anthropic_api_integration():  
     # Step 1: Use the key from the environment if provided; otherwise, fall back to a dummy key.
     dummy_key = "sk-ant-dummy"
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY", dummy_key)
