@@ -289,28 +289,16 @@ def test_anthropic_api_integration():
     print("Platform:", platform.platform())
     print("Current working directory:", os.getcwd())
     
-    # Log selected environment variables.
-    keys_to_log = ["ANTHROPIC_API_KEY", "OPENAI_KEY", "GROQ_API_KEY", "PYTHONPATH", "PATH"]
-    for key in keys_to_log:
-        print(f"{key}: {os.environ.get(key)}")
-    
     # List all installed packages
     print("=== Installed Packages (pip freeze) ===")
     pip_result = subprocess.run("pip freeze", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     print(pip_result.stdout)
     print("=== End Installed Packages ===\n")
-
-    # # Setup
-    # # export PYTHONPATH=$(pwd)
-    # setup_command = "export PYTHONPATH=$(pwd)"
-    # print("Running setup command:", setup_command)
-    # subprocess.run(setup_command, shell=True, text=True)
     
-    # Step 1: Export a dummy Anthropi key into the environment.
+    # Step 1: Use the key from the environment if provided; otherwise, fall back to a dummy key.
     dummy_key = "sk-ant-dummy"
-    os.environ["ANTHROPIC_API_KEY"] = dummy_key
-    print("Set ANTHROPIC_API_KEY to dummy value for testing.")
-    # export ANTHROPIC_API_KEY=sk-ant-dummy
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", dummy_key)
+    os.environ["ANTHROPIC_API_KEY"] = anthropic_key 
     
     # Step 2: Construct the command to run.
     command = "conda run -n auto-code-rover env PYTHONPATH=$(pwd) python app/main.py github-issue --output-dir output --setup-dir setup --model claude-3-haiku-20240307 --model-temperature 0.2 --task-id langchain-20453 --clone-link https://github.com/langchain-ai/langchain.git --commit-hash cb6e5e5 --issue-link https://github.com/langchain-ai/langchain/issues/20453"
@@ -343,7 +331,7 @@ def test_anthropic_api_integration():
         )
     else:
         # For a real key scenario, you could assert a placeholder success message.
-        expected_success_message = "Operation completed"
+        expected_success_message = "Finished all tasks sequentially."
         assert expected_success_message in result.stdout, (
             f"Test failed: Expected success message '{expected_success_message}' not found."
         )
