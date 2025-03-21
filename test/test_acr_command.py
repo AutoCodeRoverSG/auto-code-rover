@@ -14,7 +14,8 @@ call_tracker = {
 
 # Import the main module so we can patch its attributes.
 import app.main as main_module
-from app.main import inference
+from app.main import inference, run_raw_task
+from app import config
 
 # Import your existing DummyTask from your utils module.
 from test.pytest_utils import DummyTask as BaseDummyTask
@@ -182,3 +183,96 @@ def test_local_issue(tmp_path):
 
     # Assert that the patched RawLocalTask constructor was invoked.
     assert call_tracker["RawLocalTask"] == 1, "Expected RawLocalTask to be instantiated once."
+
+def test_run_raw_task_success(monkeypatch, tmp_path):
+    """
+    Test that run_raw_task returns True when do_inference returns True.
+    It also verifies that dump_meta_data is called and that a dummy patch path is logged.
+    """
+    # Set the configuration so that we run the normal branch (not eval reproducer).
+    config.only_eval_reproducer = False
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    config.output_dir = str(output_dir)
+
+    # Define a dummy task with the required methods.
+    class DummyTask:
+        task_id = "dummy123"
+        def dump_meta_data(self, out_dir: str):
+            # Simulate writing a meta file.
+            Path(out_dir, "meta.json").write_text('{"dummy": "data"}')
+        def to_task(self):
+            return self
+
+    dummy_task = DummyTask()
+
+    # Patch do_inference to return True.
+    monkeypatch.setattr(main_module, "do_inference", lambda task, out_dir: True)
+    # Patch get_final_patch_path to return a dummy patch path.
+    monkeypatch.setattr(main_module, "get_final_patch_path", lambda out_dir: "dummy_patch_path")
+    # Patch create_dir_if_not_exists to create the directory.
+    monkeypatch.setattr(
+        main_module.apputils, 
+        "create_dir_if_not_exists", 
+        lambda d: Path(d).mkdir(parents=True, exist_ok=True)
+    )
+    # Record log messages.
+    log_messages = []
+    monkeypatch.setattr(main_module.log, "log_and_always_print", lambda msg: log_messages.append(msg))
+    
+    # Call the function under test.
+    result = run_raw_task(dummy_task)
+    
+    # Assert that the dummy inference returned True.
+    assert result is True
+    # Check that dump_meta_data has created a meta.json in the task output directory.
+    # We know the output directory is config.output_dir/dummy123_<timestamp>; we can check that some file exists.
+    task_dirs = list(Path(config.output_dir).glob("dummy123_*"))
+    assert len(task_dirs) == 1, "Expected one output directory to be created for the task."
+    meta_file = task_dirs[0] / "meta.json"
+    assert meta_file.exists(), "Expected meta.json to be dumped in the task output directory."
+    # Check that a log message mentioning the dummy patch path was printed.
+    assert any("dummy_patch_path" in msg for msg in log_messages), "Expected patch path log message."
+
+    
+def test_run_raw_task_exception(monkeypatch, tmp_path):
+    """
+    Test that run_raw_task catches exceptions from do_inference and returns False.
+    It also logs an appropriate error message.
+    """
+    config.only_eval_reproducer = False
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    config.output_dir = str(output_dir)
+
+    class DummyTask:
+        task_id = "dummy456"
+        def dump_meta_data(self, out_dir: str):
+            Path(out_dir, "meta.json").write_text('{"dummy": "data"}')
+        def to_task(self):
+            return self
+
+    dummy_task = DummyTask()
+
+    # Patch do_inference to raise an exception.
+    def fake_inference(task, out_dir):
+        raise ValueError("inference error")
+    monkeypatch.setattr(main_module, "do_inference", fake_inference)
+    # Patch get_final_patch_path to return None.
+    monkeypatch.setattr(main_module, "get_final_patch_path", lambda out_dir: None)
+    monkeypatch.setattr(
+        main_module.apputils,
+        "create_dir_if_not_exists",
+        lambda d: Path(d).mkdir(parents=True, exist_ok=True)
+    )
+    # Record log messages.
+    log_messages = []
+    monkeypatch.setattr(main_module.log, "log_and_always_print", lambda msg: log_messages.append(msg))
+    # Patch logger.exception to do nothing.
+    monkeypatch.setattr(main_module.logger, "exception", lambda e: None)
+
+    result = run_raw_task(dummy_task)
+    # Since an exception is raised inside do_inference, the function should return False.
+    assert result is False
+    # Check that a log message indicating failure was printed.
+    assert any("failed with exception" in msg for msg in log_messages), "Expected error log message."
