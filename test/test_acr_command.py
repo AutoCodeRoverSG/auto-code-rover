@@ -323,3 +323,31 @@ def test_anthropic_api_integration():
         assert expected_success_message in result.stdout, (
             f"Test failed: Expected success message '{expected_success_message}' not found."
         )
+
+import os
+import pytest
+import openai
+
+@pytest.mark.integration
+def test_openai_simple():
+    # Use the key from the environment if provided; otherwise, use a dummy key.
+    dummy_key = "sk-openai-dummy"
+    openai_key = os.environ.get("OPENAI_KEY", dummy_key)
+    openai.api_key = openai_key
+    print("Using OPENAI_KEY:", openai_key)
+    
+    # If using a dummy key, you might want to skip the test locally.
+    if openai_key == dummy_key:
+        pytest.skip("No valid OPENAI_KEY provided; skipping live API test.")
+
+    try:
+        # Call OpenAI API (example with ChatCompletion)
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": "Hello, OpenAI!"}]
+        )
+    except Exception as e:
+        pytest.fail(f"OpenAI API call failed: {e}")
+
+    # Assert that the response contains choices.
+    assert "choices" in response and len(response["choices"]) > 0, "No choices returned from OpenAI API."
