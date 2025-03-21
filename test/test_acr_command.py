@@ -334,11 +334,6 @@ def test_openai_simple():
     dummy_key = "sk-openai-dummy"
     openai_key = os.environ.get("OPENAI_KEY", dummy_key)
     openai.api_key = openai_key
-    print("Using OPENAI_KEY:", openai_key)
-    
-    # If using a dummy key, you might want to skip the test locally.
-    if openai_key == dummy_key:
-        pytest.skip("No valid OPENAI_KEY provided; skipping live API test.")
 
     try:
         # Call OpenAI API (example with ChatCompletion)
