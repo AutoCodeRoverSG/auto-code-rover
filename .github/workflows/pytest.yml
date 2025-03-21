@@ -46,8 +46,14 @@ jobs:
         run: conda install -y tox
 
       - name: Run tox tests
-        run: tox -e unit
-        # tox -e integration will run the integration tests (invoking real API calls)
+        run: |
+          echo "Current branch: ${{ github.ref }}"
+          if [[ "${{ github.ref }}" == "refs/heads/pytest-unit" ]]; then
+            echo "Running unit tests only."
+            tox -e unit
+          elif [[ "${{ github.ref }}" == "refs/heads/pytest-integration" ]]; then
+            echo "Running integration tests only."
+            tox -e integration
 
       - name: Check Coverage Report Exists
         run: |
