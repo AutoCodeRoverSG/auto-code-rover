@@ -10,19 +10,23 @@ from test.pytest_utils import *
 # Assume these are imported from test/pytest_utils:
 # DummyThreadCost, dummy_check_api_key, dummy_sleep, dummy_sys_exit, SysExitException
 
+
 # --- Dummy Response for Ollama Models ---
 def DummyOllamaResponse(content="Test response"):
     """Return a dummy response mimicking the Ollama API."""
     return {"message": {"content": content}}
+
 
 # --- Dummy Check Functions for Ollama ---
 def dummy_check_api_key_ollama(self):
     print("dummy_check_api_key_ollama called")
     return "No key required for local models."
 
+
 def dummy_send_empty_request(self):
     print("dummy_send_empty_request called")
     # Do nothing for testing.
+
 
 # -------------------- Ollama Model Call Tests --------------------
 
@@ -32,7 +36,10 @@ ollama_models = {
     "Llama3_70B": Llama3_70B,
 }
 
-@pytest.mark.parametrize("model_class", ollama_models.values(), ids=ollama_models.keys())
+
+@pytest.mark.parametrize(
+    "model_class", ollama_models.values(), ids=ollama_models.keys()
+)
 def test_ollama_model_call(monkeypatch, model_class):
     """
     Test the call method for Ollama models.
@@ -64,9 +71,11 @@ def test_ollama_model_call(monkeypatch, model_class):
     # --- Case 2: response_format = "json_object" ---
     # We'll capture the messages passed to ollama.chat.
     captured_messages = []
+
     def dummy_ollama_chat(**kwargs):
         captured_messages.append(kwargs.get("messages"))
         return DummyOllamaResponse()
+
     monkeypatch.setattr("ollama.chat", dummy_ollama_chat)
     messages = [{"role": "user", "content": "Hello"}]
     result = model.call(messages, response_format="json_object")

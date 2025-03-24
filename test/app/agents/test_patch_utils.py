@@ -2,6 +2,7 @@ from tempfile import NamedTemporaryFile
 
 from app.agents.patch_utils import *
 
+
 def test_parse_edits():
     chat_input = (
         "```\n"
@@ -21,6 +22,7 @@ def test_parse_edits():
     assert edits[0].before == "def foo():\n    pass"
     assert edits[0].after == "def foo():\n    print('patched')"
 
+
 def test_apply_edit_success():
     original_content = "def foo():\n    pass\n"
     patched_content = "def foo():\n    print('patched')"
@@ -38,6 +40,7 @@ def test_apply_edit_success():
     with open(tmp_path) as f:
         assert f.read().strip() == patched_content.strip()
 
+
 def test_apply_edit_failure():
     original_content = "def bar():\n    pass\n"
     edit = Edit("dummy.py", "def foo():\n    pass", "def foo():\n    print('patched')")
@@ -49,6 +52,7 @@ def test_apply_edit_failure():
     result = apply_edit(edit, tmp_path)
 
     assert result is None
+
 
 def test_lint_python_content():
     valid_content = "def foo():\n    return True"

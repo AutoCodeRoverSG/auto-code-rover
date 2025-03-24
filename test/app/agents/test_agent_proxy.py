@@ -4,20 +4,28 @@ from collections import Counter
 from unittest.mock import MagicMock, patch
 
 import pytest
-from app.agents.agent_proxy import run, run_with_retries, is_valid_response, PROXY_PROMPT
+from app.agents.agent_proxy import (
+    run,
+    run_with_retries,
+    is_valid_response,
+    PROXY_PROMPT,
+)
 from app.data_structures import MessageThread
 from app.post_process import ExtractStatus, is_valid_json
 from app.search.search_backend import SearchBackend
 from app.utils import parse_function_invocation
 from test.pytest_utils import *  # Import any shared test utilities
 
+
 # Fixture to restore common.SELECTED_MODEL after each test
 @pytest.fixture(autouse=True)
 def restore_selected_model():
     from app.model import common as common_mod
+
     original = common_mod.__dict__.get("SELECTED_MODEL", None)
     yield
     common_mod.SELECTED_MODEL = original
+
 
 ###############################################################################
 # Tests for is_valid_response
@@ -30,6 +38,7 @@ def test_is_valid_response_non_dict():
     assert valid is False
     assert msg == "Json is not a dict"
 
+
 def test_is_valid_response_empty_dict():
     """
     When neither API_calls nor bug_locations are provided, the function should return an error.
@@ -37,6 +46,7 @@ def test_is_valid_response_empty_dict():
     valid, msg = is_valid_response({})
     assert valid is False
     assert msg == "Both API_calls and bug_locations are empty"
+
 
 def test_is_valid_response_bug_location_missing_details():
     """
@@ -48,6 +58,7 @@ def test_is_valid_response_bug_location_missing_details():
     assert valid is False
     assert "Bug location not detailed enough" in msg
 
+
 def test_is_valid_response_valid_bug_locations():
     """
     When bug_locations has at least one of the required keys, the function should return True.
@@ -56,6 +67,7 @@ def test_is_valid_response_valid_bug_locations():
     valid, msg = is_valid_response(data)
     assert valid is True
     assert msg == "OK"
+
 
 def test_is_valid_response_invalid_api_calls_type():
     """
@@ -66,6 +78,7 @@ def test_is_valid_response_invalid_api_calls_type():
     assert valid is False
     assert msg == "Every API call must be a string"
 
+
 def test_is_valid_response_invalid_api_call_syntax():
     """
     If an API call string does not conform to the expected syntax (i.e. parse_function_invocation fails),
@@ -73,10 +86,14 @@ def test_is_valid_response_invalid_api_call_syntax():
     """
     data = {"API_calls": ["bad_call"]}
     # Force parse_function_invocation to raise an Exception.
-    with patch("app.agents.agent_proxy.parse_function_invocation", side_effect=Exception("parse error")):
+    with patch(
+        "app.agents.agent_proxy.parse_function_invocation",
+        side_effect=Exception("parse error"),
+    ):
         valid, msg = is_valid_response(data)
         assert valid is False
         assert "Every API call must be of form" in msg
+
 
 def test_is_valid_response_nonexistent_api_call():
     """
@@ -85,10 +102,14 @@ def test_is_valid_response_nonexistent_api_call():
     # Prepare an API call that, when parsed, returns a valid function name but not found.
     api_call = 'search_nonexistent("arg")'
     # Patch parse_function_invocation to return a dummy function name and arguments.
-    with patch("app.agents.agent_proxy.parse_function_invocation", return_value=("search_nonexistent", ["arg"])):
+    with patch(
+        "app.agents.agent_proxy.parse_function_invocation",
+        return_value=("search_nonexistent", ["arg"]),
+    ):
         valid, msg = is_valid_response({"API_calls": [api_call]})
         assert valid is False
         assert "calls a non-existent function" in msg
+
 
 def test_is_valid_response_wrong_number_of_arguments(monkeypatch):
     """
@@ -98,17 +119,20 @@ def test_is_valid_response_wrong_number_of_arguments(monkeypatch):
     api_call = 'search_method("arg1", "arg2")'
     # Use monkeypatch to override parse_function_invocation to return two arguments.
     monkeypatch.setattr(
-        "app.agents.agent_proxy.parse_function_invocation", 
-        lambda s: ("search_method", ["arg1", "arg2"])
+        "app.agents.agent_proxy.parse_function_invocation",
+        lambda s: ("search_method", ["arg1", "arg2"]),
     )
+
     # Use monkeypatch to set a dummy search_method on SearchBackend that expects one argument (besides self).
     def dummy_function(self, x):
         return x
+
     monkeypatch.setattr(SearchBackend, "search_method", dummy_function)
-    
+
     valid, msg = is_valid_response({"API_calls": [api_call]})
     assert valid is False
     assert "wrong number of arguments" in msg
+
 
 def test_is_valid_response_valid_api_calls(monkeypatch):
     """
@@ -117,18 +141,21 @@ def test_is_valid_response_valid_api_calls(monkeypatch):
     """
     api_call = 'search_method("arg1")'
     monkeypatch.setattr(
-        "app.agents.agent_proxy.parse_function_invocation", 
-        lambda s: ("search_method", ["arg1"])
+        "app.agents.agent_proxy.parse_function_invocation",
+        lambda s: ("search_method", ["arg1"]),
     )
+
     # Set a dummy search_method on SearchBackend that accepts exactly one argument (besides self).
     def dummy_search_method(self, x):
         return x
+
     monkeypatch.setattr(SearchBackend, "search_method", dummy_search_method)
-    
+
     valid, msg = is_valid_response({"API_calls": [api_call]})
     assert valid is True
     assert msg == "OK"
-    
+
+
 ###############################################################################
 # Tests for run
 ###############################################################################
@@ -140,6 +167,7 @@ def test_run_returns_expected_thread():
     """
     dummy_response = '{"API_calls": [], "bug_locations": [{"file": "dummy.py"}]}'
     from app.model import common as common_mod
+
     common_mod.SELECTED_MODEL.call.return_value = (dummy_response,)
 
     test_text = "Sample raw text input"
@@ -150,6 +178,7 @@ def test_run_returns_expected_thread():
     assert PROXY_PROMPT.strip() in thread.messages[0]["content"]
     # And that the user message equals test_text.
     assert test_text in thread.messages[1]["content"]
+
 
 ###############################################################################
 # Tests for run_with_retries
@@ -168,6 +197,7 @@ def test_run_with_retries_eventually_valid():
     responses = [invalid_response, invalid_response, valid_response]
     dummy_model = DummyModel(responses)
     from app.model import common as common_mod
+
     common_mod.SELECTED_MODEL = dummy_model
 
     test_text = "Input for proxy"
@@ -177,6 +207,7 @@ def test_run_with_retries_eventually_valid():
     # We expect multiple message threads were collected.
     assert len(threads) == 3
 
+
 @patch.dict("app.model.common.__dict__", {"SELECTED_MODEL": MagicMock()})
 def test_run_with_retries_never_valid():
     """
@@ -185,6 +216,7 @@ def test_run_with_retries_never_valid():
     responses = ["invalid", "still not json"]
     dummy_model = DummyModel(responses)
     from app.model import common as common_mod
+
     common_mod.SELECTED_MODEL = dummy_model
 
     test_text = "Another input"

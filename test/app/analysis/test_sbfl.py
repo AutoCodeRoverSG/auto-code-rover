@@ -9,6 +9,7 @@ from app.analysis.sbfl import *
 
 # --- Dummy Classes and Fixtures for Isolating sbfl.py ---
 
+
 # Dummy Task classes to simulate the required interface.
 class DummyTask:
     def __init__(self, **kwargs):
@@ -25,8 +26,10 @@ class DummyTask:
 
         return DummyContext()
 
+
 class DummySweTask(DummyTask):
     pass
+
 
 # Fixture to create a temporary project directory structure.
 @pytest.fixture
@@ -37,6 +40,7 @@ def temp_project(tmp_path):
     cov_file = project_dir / ".coverage"
     cov_file.write_text("dummy coverage data")
     return str(project_dir)
+
 
 # Dummy CoverageData to simulate coverage.sqldata behavior.
 class DummyCoverageData:
@@ -54,9 +58,13 @@ class DummyCoverageData:
         # Return a mapping: line number -> list of test names.
         return {10: ["file.py::test_pass", "file.py::test_fail"], 20: [""]}
 
+
 @pytest.fixture(autouse=True)
 def dummy_coverage(monkeypatch):
-    monkeypatch.setattr("app.analysis.sbfl.CoverageData", lambda basename: DummyCoverageData(basename))
+    monkeypatch.setattr(
+        "app.analysis.sbfl.CoverageData", lambda basename: DummyCoverageData(basename)
+    )
+
 
 # Dummy apputils to simulate context management and command execution.
 class DummyAppUtils:
@@ -75,14 +83,20 @@ class DummyAppUtils:
         # Dummy return object with stdout attribute.
         class DummyCompletedProcess:
             stdout = "dummy command output"
+
         return DummyCompletedProcess()
+
 
 @pytest.fixture(autouse=True)
 def dummy_apputils(monkeypatch):
     import app.utils as apputils
+
     dummy = DummyAppUtils()
     monkeypatch.setattr(apputils, "cd", dummy.cd)
-    monkeypatch.setattr(apputils, "run_string_cmd_in_conda", dummy.run_string_cmd_in_conda)
+    monkeypatch.setattr(
+        apputils, "run_string_cmd_in_conda", dummy.run_string_cmd_in_conda
+    )
+
 
 # Dummy log module to capture/log messages.
 class DummyLog:
@@ -90,12 +104,16 @@ class DummyLog:
     def log_and_print(msg, *args, **kwargs):
         print("LOG:", msg)
 
+
 @pytest.fixture(autouse=True)
 def dummy_log(monkeypatch):
     import app.log as log
+
     monkeypatch.setattr(log, "log_and_print", DummyLog.log_and_print)
 
+
 # --- Tests for Canonicalization Functions ---
+
 
 def test_canonicalize_testname_sympy_bin_test():
     result = canonicalize_testname_sympy_bin_test("test_func")
@@ -111,6 +129,7 @@ def test_canonicalize_testname_sympy_bin_test():
 #     # Full name is the module path concatenated with the function name.
 #     assert full_name == "module.test_func.test_func"
 
+
 def test_canonicalize_testname_django_runner_valid_new():
     # Valid pattern: "test_func (module.TestCase.test_func)"
     testname = "test_func (module.TestCase.test_func)"
@@ -121,12 +140,14 @@ def test_canonicalize_testname_django_runner_valid_new():
     # The full name is built by concatenating the path with the function name
     assert full_name == "module.TestCase.test_func.test_func"
 
+
 def test_canonicalize_testname_different_task_ids_new():
     # For a django task id using the valid pattern.
     testname = "test_func (module.TestCase.test_func)"
     result_django = canonicalize_testname("django_task", testname)
     # With the current behavior, the file name is "module/test_func.py"
     assert result_django[0] == "module/test_func.py"
+
 
 def test_canonicalize_testname_django_runner_invalid():
     # Invalid pattern should return empty strings.
@@ -135,11 +156,13 @@ def test_canonicalize_testname_django_runner_invalid():
     assert file_name == ""
     assert full_name == ""
 
+
 def test_canonicalize_testname_pytest():
     testname = "file.py::test_func"
     file_name, full_name = canonicalize_testname_pytest(testname)
     assert file_name == "file.py"
     assert full_name == testname
+
 
 # def test_canonicalize_testname_different_task_ids():
 #     # For django task id.
@@ -154,6 +177,7 @@ def test_canonicalize_testname_pytest():
 
 # --- Tests for Execution Statistics Classes ---
 
+
 def test_file_exec_stats():
     fes = FileExecStats("dummy.py")
     fes.incre_pass_count(10)
@@ -163,6 +187,7 @@ def test_file_exec_stats():
     assert fes.line_stats[10] == (2, 1)
     s = str(fes)
     assert "dummy.py" in s
+
 
 def test_exec_stats_and_ranking():
     exec_stats = ExecStats()
@@ -182,18 +207,22 @@ def test_exec_stats_and_ranking():
     score_dstar = ExecStats.dstar(0, 0, 1, 1)
     assert score_dstar == 0
 
+
 # --- Tests for Helper Functions ---
+
 
 def test_helper_remove_dup_and_empty():
     lst = ["a", "b", "", "a"]
     result = helper_remove_dup_and_empty(lst)
     assert set(result) == {"a", "b"}
 
+
 def test_helper_two_tests_match():
     # Test using endswith matching.
     assert helper_two_tests_match("a.b.c", "b.c")
     assert helper_two_tests_match("b.c", "a.b.c") is True
     assert helper_two_tests_match("a.b.c", "a.b.d") is False
+
 
 def test_helper_test_match_any():
     test = "a.b.c"
@@ -202,7 +231,9 @@ def test_helper_test_match_any():
     candidates = ["x.y"]
     assert helper_test_match_any(test, candidates) is False
 
+
 # --- Tests for Collation and Mapping Functions ---
+
 
 def test_collate_results():
     # Create ranked lines with some non-positive scores and adjacent lines.
@@ -224,9 +255,11 @@ def test_collate_results():
     assert results[1][2] == 11
     assert results[1][3] == 0.7
 
+
 def test_method_ranges_in_file(tmp_path):
     # Create a temporary Python file with two functions and a class with methods.
-    file_content = textwrap.dedent("""
+    file_content = textwrap.dedent(
+        """
         def func1():
             pass
 
@@ -239,7 +272,8 @@ def test_method_ranges_in_file(tmp_path):
 
             async def method2(self):
                 pass
-    """)
+    """
+    )
     file_path = tmp_path / "dummy.py"
     file_path.write_text(file_content)
     ranges = method_ranges_in_file(str(file_path))
@@ -252,12 +286,15 @@ def test_method_ranges_in_file(tmp_path):
     ranges_invalid = method_ranges_in_file(str(invalid_file))
     assert ranges_invalid == {}
 
+
 def test_map_collated_results_to_methods(tmp_path):
     # Create a dummy Python file with one function.
-    file_content = textwrap.dedent("""
+    file_content = textwrap.dedent(
+        """
         def func1():
             pass
-    """)
+    """
+    )
     file_path = tmp_path / "dummy.py"
     file_path.write_text(file_content)
     # Create a ranked range that overlaps with the function's lines.
@@ -269,7 +306,9 @@ def test_map_collated_results_to_methods(tmp_path):
     assert filename == str(file_path)
     assert method_name == "func1"
 
+
 # --- Tests for the Main run Functions and PythonSbfl Class ---
+
 
 def test_run_with_non_swe_task():
     # A dummy task that is NOT an instance of SweTask should raise NotImplementedError.
@@ -284,6 +323,7 @@ def test_run_with_non_swe_task():
     )
     with pytest.raises(NotImplementedError):
         run(dummy_task)
+
 
 def test_python_sbfl_run_success(tmp_path, monkeypatch):
     # Test PythonSbfl.run with a dummy SweTask simulating a successful run.
@@ -311,6 +351,7 @@ def test_python_sbfl_run_success(tmp_path, monkeypatch):
     assert isinstance(ranked_lines, list)
     assert log_file != ""
 
+
 def test_python_sbfl_run_no_coverage(tmp_path, monkeypatch):
     # Test that PythonSbfl.run raises NoCoverageData when no coverage file exists.
     project_dir = tmp_path / "project"
@@ -329,7 +370,9 @@ def test_python_sbfl_run_no_coverage(tmp_path, monkeypatch):
     with pytest.raises(NoCoverageData):
         PythonSbfl.run(task)
 
+
 # --- Tests for Configuration File Helpers ---
+
 
 def test_specify_dynamic_context(tmp_path):
     coveragerc = tmp_path / "coveragerc"
@@ -343,6 +386,7 @@ def test_specify_dynamic_context(tmp_path):
     content = coveragerc.read_text()
     assert "dynamic_context = test_function" in content
 
+
 def test_omit_coverage_in_file(tmp_path):
     coveragerc = tmp_path / "coveragerc"
     coveragerc.write_text("[run]\nomit = original")
@@ -351,6 +395,7 @@ def test_omit_coverage_in_file(tmp_path):
     content = coveragerc.read_text()
     for file in omitted:
         assert file in content
+
 
 def test_add_pytest_cov_to_tox(tmp_path):
     tox_ini = tmp_path / "tox.ini"

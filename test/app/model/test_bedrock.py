@@ -20,8 +20,11 @@ from litellm.utils import ModelResponse, Choices, Message
 from app.log import log_and_print
 from test.pytest_utils import *
 
+
 # --- Updated Dummy Response for Bedrock Models using parse_obj ---
-def DummyBedrockResponse(content="Test response", input_tokens=1, output_tokens=2, tool_calls=None):
+def DummyBedrockResponse(
+    content="Test response", input_tokens=1, output_tokens=2, tool_calls=None
+):
     """
     Create a dummy response that is a valid instance of ModelResponse.
     """
@@ -30,6 +33,7 @@ def DummyBedrockResponse(content="Test response", input_tokens=1, output_tokens=
         "choices": [{"message": {"content": content, "tool_calls": tool_calls}}],
     }
     return ModelResponse.parse_obj(data)
+
 
 # -------------------- Bedrock Model Call Tests --------------------
 
@@ -45,7 +49,10 @@ bedrock_models = {
     "AnthropicClaude3Haiku": AnthropicClaude3Haiku,
 }
 
-@pytest.mark.parametrize("model_class", bedrock_models.values(), ids=bedrock_models.keys())
+
+@pytest.mark.parametrize(
+    "model_class", bedrock_models.values(), ids=bedrock_models.keys()
+)
 def test_bedrock_model_call(monkeypatch, model_class):
     """
     Test the normal call flow of Bedrock models.
@@ -75,9 +82,11 @@ def test_bedrock_model_call(monkeypatch, model_class):
 
     # --- Case 2: response_format = "json_object" ---
     captured_messages = []
+
     def dummy_completion(**kwargs):
         captured_messages.append(kwargs.get("messages"))
         return DummyBedrockResponse()
+
     monkeypatch.setattr("litellm.completion", dummy_completion)
     messages = [{"role": "user", "content": "Hello"}]
     result = model.call(messages, response_format="json_object")
@@ -97,10 +106,11 @@ def test_bedrock_model_call(monkeypatch, model_class):
 # --- This statement is not a problem in the actual codebase.
 # --- Returning hash as a string to check if SonarQube catches this issue.
 
+
 class SomeClass:
     def __init__(self):
         self.foo = "foo"
         self.bar = "bar"
-    
+
     def __hash__(self):
-        return 'hash((self.foo, self.bar))'
+        return "hash((self.foo, self.bar))"

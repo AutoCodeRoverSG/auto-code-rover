@@ -11,6 +11,7 @@ from app.agents.agent_search import (
 )
 from app.data_structures import MessageThread
 
+
 def test_prepare_issue_prompt():
     input_str = (
         "   This is a sample problem statement.   \n"
@@ -23,21 +24,26 @@ def test_prepare_issue_prompt():
         "still in comment -->\n"
         "Final line."
     )
-    
+
     expected_output = (
         "<issue>This is a sample problem statement.\n"
         "It spans multiple lines.\n"
         "And has extra spaces.\n"
         "Final line.\n</issue>"
     )
-    
+
     assert prepare_issue_prompt(input_str) == expected_output
 
-@patch("app.agents.agent_search.common.SELECTED_MODEL", new_callable=MagicMock, create=True)
+
+@patch(
+    "app.agents.agent_search.common.SELECTED_MODEL", new_callable=MagicMock, create=True
+)
 @patch("app.agents.agent_search.print_acr")
 @patch("app.agents.agent_search.print_retrieval")
 @patch("app.agents.agent_search.config")
-def test_generator_retry(mock_config, mock_print_retrieval, mock_print_acr, mock_selected_model):
+def test_generator_retry(
+    mock_config, mock_print_retrieval, mock_print_acr, mock_selected_model
+):
     """
     Test the generator branch where re_search is True.
     In this branch the generator will:
@@ -55,7 +61,7 @@ def test_generator_retry(mock_config, mock_print_retrieval, mock_print_acr, mock
     #  - Next iteration API selection call after the retry.
     mock_selected_model.call.side_effect = [
         ("API selection response",),
-        ("API selection response after retry",)
+        ("API selection response after retry",),
     ]
 
     issue_stmt = "Sample issue"
@@ -75,16 +81,21 @@ def test_generator_retry(mock_config, mock_print_retrieval, mock_print_acr, mock
     user_msgs = [m for m in msg_thread_retry.messages if m.get("role") == "user"]
     assert any(search_result in m.get("content", "") for m in user_msgs)
 
-@patch("app.agents.agent_search.common.SELECTED_MODEL", new_callable=MagicMock, create=True)
+
+@patch(
+    "app.agents.agent_search.common.SELECTED_MODEL", new_callable=MagicMock, create=True
+)
 @patch("app.agents.agent_search.print_acr")
 @patch("app.agents.agent_search.print_retrieval")
 @patch("app.agents.agent_search.config")
-def test_generator_full_flow_gpt_mod(mock_config, mock_print_retrieval, mock_print_acr, mock_selected_model):
+def test_generator_full_flow_gpt_mod(
+    mock_config, mock_print_retrieval, mock_print_acr, mock_selected_model
+):
     """
     Test the full generator flow using a GPT model (non-Ollama).
     This modified version supplies extra side-effect values for the dummy model
     and catches the unpacking error on generator close.
-    
+
     This covers:
       - The branches when config.enable_sbfl and config.reproduce_and_review are True.
       - The analysis branch when re_search is False.
@@ -99,7 +110,7 @@ def test_generator_full_flow_gpt_mod(mock_config, mock_print_retrieval, mock_pri
     #  - Next iteration API selection call after the retry.
     mock_selected_model.call.side_effect = [
         ("API selection response",),
-        ("API selection response after retry",)
+        ("API selection response after retry",),
     ]
 
     issue_stmt = "Sample issue"
@@ -119,11 +130,16 @@ def test_generator_full_flow_gpt_mod(mock_config, mock_print_retrieval, mock_pri
     user_msgs = [m for m in msg_thread_retry.messages if m.get("role") == "user"]
     assert any(search_result in m.get("content", "") for m in user_msgs)
 
-@patch("app.agents.agent_search.common.SELECTED_MODEL", new_callable=MagicMock, create=True)
+
+@patch(
+    "app.agents.agent_search.common.SELECTED_MODEL", new_callable=MagicMock, create=True
+)
 @patch("app.agents.agent_search.print_acr")
 @patch("app.agents.agent_search.print_retrieval")
 @patch("app.agents.agent_search.config")
-def test_generator_no_re_search(mock_config, mock_print_retrieval, mock_print_acr, mock_selected_model):
+def test_generator_no_re_search(
+    mock_config, mock_print_retrieval, mock_print_acr, mock_selected_model
+):
     """
     Test the generator branch where re_search is False,
     covering analysis and further selection prompt logic.
@@ -134,7 +150,7 @@ def test_generator_no_re_search(mock_config, mock_print_retrieval, mock_print_ac
     mock_selected_model.call.side_effect = [
         ("API selection response",),
         ("Analysis response",),
-        ("Analyze and select response",)  
+        ("Analyze and select response",),
     ]
 
     issue_stmt = "Sample issue"
@@ -154,7 +170,9 @@ def test_generator_no_re_search(mock_config, mock_print_retrieval, mock_print_ac
     # Ensure "Analyze and select response" was returned
     assert res_text_analysis == "Analyze and select response"
     # Verify messages added to msg_thread correctly
-    user_msgs = [m["content"] for m in msg_thread_analysis.messages if m.get("role") == "user"]
+    user_msgs = [
+        m["content"] for m in msg_thread_analysis.messages if m.get("role") == "user"
+    ]
     assert search_result in user_msgs
     assert ANALYZE_PROMPT in user_msgs
     assert ANALYZE_AND_SELECT_PROMPT in user_msgs

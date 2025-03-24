@@ -7,8 +7,11 @@ from app.model import common
 from app.model.gptlitellm import *
 from litellm.utils import ModelResponse, Choices, Message
 
+
 # --- Dummy Utilities ---
-def DummyLiteLLMResponse(content="Test response", input_tokens=1, output_tokens=2, tool_calls=None):
+def DummyLiteLLMResponse(
+    content="Test response", input_tokens=1, output_tokens=2, tool_calls=None
+):
     """
     Create a dummy response as a valid ModelResponse instance using parse_obj.
     """
@@ -18,18 +21,22 @@ def DummyLiteLLMResponse(content="Test response", input_tokens=1, output_tokens=
     }
     return ModelResponse.parse_obj(data)
 
+
 def dummy_check_api_key_litellm(self):
     print("dummy_check_api_key_litellm called")
     return "dummy-key"
+
 
 class DummyThreadCost:
     process_cost = 0.0
     process_input_tokens = 0
     process_output_tokens = 0
 
+
 def dummy_sleep(seconds):
     print(f"dummy_sleep called with {seconds} seconds (disabled)")
     return None
+
 
 # -------------------- OpenaiLiteLLMModel Call Tests --------------------
 
@@ -46,7 +53,10 @@ lite_llm_models = {
     "Gpt4_0613LiteLLM": Gpt4_0613LiteLLM,
 }
 
-@pytest.mark.parametrize("model_class", lite_llm_models.values(), ids=lite_llm_models.keys())
+
+@pytest.mark.parametrize(
+    "model_class", lite_llm_models.values(), ids=lite_llm_models.keys()
+)
 def test_openai_litellm_model_call(monkeypatch, model_class):
     """
     Test the normal call flow of OpenaiLiteLLM models.
@@ -77,9 +87,11 @@ def test_openai_litellm_model_call(monkeypatch, model_class):
     # When "json_object" is used, the call method appends an assistant message with prefill "{"
     # and then later prepends the prefill if needed.
     captured_messages = []
+
     def dummy_completion(**kwargs):
         captured_messages.append(kwargs.get("messages"))
         return DummyLiteLLMResponse()
+
     monkeypatch.setattr("litellm.completion", dummy_completion)
     messages = [{"role": "user", "content": "Hello"}]
     result = model.call(messages, response_format="json_object")

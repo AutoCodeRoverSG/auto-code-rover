@@ -12,6 +12,7 @@ from app.agents import agent_search, agent_proxy
 
 from test.pytest_utils import DummyTask, DummyMessageThread
 
+
 # --- Test class for SearchManager ---
 class TestSearchManager:
     def test_start_new_tool_call_layer_and_add(self, tmp_path):
@@ -48,7 +49,7 @@ class TestSearchManager:
         # Patch search_utils.get_code_snippets to avoid file I/O error.
         monkeypatch.setattr(
             "app.search.search_utils.get_code_snippets",
-            lambda file, start, end, with_lineno=True: "dummy snippet"
+            lambda file, start, end, with_lineno=True: "dummy snippet",
         )
 
         # --- Dummy generator for agent_search ---
@@ -56,9 +57,11 @@ class TestSearchManager:
             dummy_thread = DummyMessageThread()
             # First send returns a dummy agent search response and a dummy message thread.
             received = yield ("dummy agent search response", dummy_thread)
+
         monkeypatch.setattr(
-            agent_search, "generator",
-            lambda issue, sbfl, reproducer: dummy_generator(issue, sbfl, reproducer)
+            agent_search,
+            "generator",
+            lambda issue, sbfl, reproducer: dummy_generator(issue, sbfl, reproducer),
         )
 
         # --- Dummy agent_proxy.run_with_retries ---
@@ -67,21 +70,29 @@ class TestSearchManager:
             "file": "dummy.py",
             "method": "test_method",
             "class": "Dummy",
-            "intended_behavior": "beh"
+            "intended_behavior": "beh",
         }
         selected_apis = json.dumps({"API_calls": [], "bug_locations": [bug_loc_dict]})
-        monkeypatch.setattr(agent_proxy, "run_with_retries", lambda resp: (selected_apis, []))
+        monkeypatch.setattr(
+            agent_proxy, "run_with_retries", lambda resp: (selected_apis, [])
+        )
 
         # --- Patch backend.get_bug_loc_snippets_new ---
         dummy_sr = SearchResult("dummy.py", 1, 2, "Dummy", "test_method", "dummy code")
         dummy_bug_loc = BugLocation(dummy_sr, "dummy_project", "beh")
-        monkeypatch.setattr(sm.backend, "get_bug_loc_snippets_new", lambda loc: [dummy_bug_loc])
+        monkeypatch.setattr(
+            sm.backend, "get_bug_loc_snippets_new", lambda loc: [dummy_bug_loc]
+        )
 
         # Prevent actual printing.
         monkeypatch.setattr("app.search.search_manage.print_banner", lambda msg: None)
-        monkeypatch.setattr("app.search.search_manage.print_acr", lambda msg, title: None)
+        monkeypatch.setattr(
+            "app.search.search_manage.print_acr", lambda msg, title: None
+        )
 
-        bug_locations, msg_thread = sm.search_iterative(dummy_task, sbfl_result, reproducer_result, None)
+        bug_locations, msg_thread = sm.search_iterative(
+            dummy_task, sbfl_result, reproducer_result, None
+        )
         # Validate that one dummy BugLocation is returned and the message thread is our dummy.
         assert bug_locations == [dummy_bug_loc]
         assert isinstance(msg_thread, DummyMessageThread)
@@ -101,9 +112,11 @@ class TestSearchManager:
         def dummy_generator(issue, sbfl, reproducer):
             dummy_thread = DummyMessageThread()
             received = yield ("dummy agent search response", dummy_thread)
+
         monkeypatch.setattr(
-            agent_search, "generator",
-            lambda issue, sbfl, reproducer: dummy_generator(issue, sbfl, reproducer)
+            agent_search,
+            "generator",
+            lambda issue, sbfl, reproducer: dummy_generator(issue, sbfl, reproducer),
         )
         # Force agent_proxy.run_with_retries to return None for selected_apis.
         monkeypatch.setattr(agent_proxy, "run_with_retries", lambda resp: (None, []))
@@ -119,9 +132,13 @@ class TestSearchManager:
         monkeypatch.setattr(sm.backend, "get_file_content", monkeyatch_noop)
 
         monkeypatch.setattr("app.search.search_manage.print_banner", lambda msg: None)
-        monkeypatch.setattr("app.search.search_manage.print_acr", lambda msg, title: None)
+        monkeypatch.setattr(
+            "app.search.search_manage.print_acr", lambda msg, title: None
+        )
 
-        bug_locations, msg_thread = sm.search_iterative(dummy_task, sbfl_result, reproducer_result, None)
+        bug_locations, msg_thread = sm.search_iterative(
+            dummy_task, sbfl_result, reproducer_result, None
+        )
         # Expect empty bug location list because no valid result was found.
         assert bug_locations == []
         assert isinstance(msg_thread, DummyMessageThread)
@@ -145,36 +162,54 @@ class TestSearchManager:
         def dummy_generator(issue, sbfl, reproducer):
             dummy_thread = DummyMessageThread()
             received = yield ("dummy agent search response", dummy_thread)
+
         monkeypatch.setattr(
-            agent_search, "generator",
-            lambda issue, sbfl, reproducer: dummy_generator(issue, sbfl, reproducer)
+            agent_search,
+            "generator",
+            lambda issue, sbfl, reproducer: dummy_generator(issue, sbfl, reproducer),
         )
 
         # Return a valid JSON string with API_calls and an (ignored) bug_locations list.
-        selected_apis = json.dumps({"API_calls": ["dummy_api_call"], "bug_locations": []})
-        monkeypatch.setattr(agent_proxy, "run_with_retries", lambda resp: (selected_apis, []))
+        selected_apis = json.dumps(
+            {"API_calls": ["dummy_api_call"], "bug_locations": []}
+        )
+        monkeypatch.setattr(
+            agent_proxy, "run_with_retries", lambda resp: (selected_apis, [])
+        )
 
         # Monkey-patch parse_function_invocation to return a dummy function name and arguments.
-        monkeypatch.setattr("app.search.search_manage.parse_function_invocation", lambda s: ("dummy_func", ["value1"]))
+        monkeypatch.setattr(
+            "app.search.search_manage.parse_function_invocation",
+            lambda s: ("dummy_func", ["value1"]),
+        )
 
         # Define a dummy function with a self parameter.
         def dummy_func(self, arg1):
             return ("dummy result", None, True)
+
         # Attach dummy_func as a bound method to the backend.
         sm.backend.dummy_func = dummy_func.__get__(sm.backend, type(sm.backend))
 
         # Prevent actual printing.
         monkeypatch.setattr("app.search.search_manage.print_banner", lambda msg: None)
-        monkeypatch.setattr("app.search.search_manage.print_acr", lambda msg, title: None)
+        monkeypatch.setattr(
+            "app.search.search_manage.print_acr", lambda msg, title: None
+        )
 
-        bug_locations, msg_thread = sm.search_iterative(dummy_task, sbfl_result, reproducer_result, None)
+        bug_locations, msg_thread = sm.search_iterative(
+            dummy_task, sbfl_result, reproducer_result, None
+        )
         # In this branch, since API calls were made, no bug locations are returned.
         assert bug_locations == []
         assert isinstance(msg_thread, DummyMessageThread)
         # Also check that the tool call layer has recorded the dummy API call.
         assert len(sm.tool_call_layers) == 1
         assert sm.tool_call_layers[0] == [
-            {"func_name": "dummy_func", "arguments": {"arg1": "value1"}, "call_ok": True}
+            {
+                "func_name": "dummy_func",
+                "arguments": {"arg1": "value1"},
+                "call_ok": True,
+            }
         ]
 
     def test_search_iterative_duplicate_bug_locations(self, monkeypatch, tmp_path):
@@ -195,11 +230,13 @@ class TestSearchManager:
         # Patch get_code_snippets to return a dummy snippet (prevents FileNotFoundError).
         monkeypatch.setattr(
             "app.search.search_utils.get_code_snippets",
-            lambda file, start, end, with_lineno=True: "dummy snippet"
+            lambda file, start, end, with_lineno=True: "dummy snippet",
         )
 
         # Use the temporary project directory as the project_path.
-        sm = SearchManager(project_path=str(dummy_project_dir), output_dir=str(output_dir))
+        sm = SearchManager(
+            project_path=str(dummy_project_dir), output_dir=str(output_dir)
+        )
         dummy_task = DummyTask()
         sbfl_result = "dummy sbfl result"
         reproducer_result = "dummy reproducer result"
@@ -207,29 +244,41 @@ class TestSearchManager:
         def dummy_generator(issue, sbfl, reproducer):
             dummy_thread = DummyMessageThread()
             yield ("dummy agent search response", dummy_thread)
+
         monkeypatch.setattr(
-            agent_search, "generator",
-            lambda issue, sbfl, reproducer: dummy_generator(issue, sbfl, reproducer)
+            agent_search,
+            "generator",
+            lambda issue, sbfl, reproducer: dummy_generator(issue, sbfl, reproducer),
         )
 
         bug_loc_dict = {
             "file": "dummy.py",
             "method": "test_method",
             "class": "Dummy",
-            "intended_behavior": "beh"
+            "intended_behavior": "beh",
         }
         selected_apis = json.dumps({"API_calls": [], "bug_locations": [bug_loc_dict]})
-        monkeypatch.setattr(agent_proxy, "run_with_retries", lambda resp: (selected_apis, []))
+        monkeypatch.setattr(
+            agent_proxy, "run_with_retries", lambda resp: (selected_apis, [])
+        )
 
         dummy_sr = SearchResult("dummy.py", 1, 2, "Dummy", "test_method", "dummy code")
         dummy_bug_loc = BugLocation(dummy_sr, str(dummy_project_dir), "beh")
         # Return duplicate bug locations.
-        monkeypatch.setattr(sm.backend, "get_bug_loc_snippets_new", lambda loc: [dummy_bug_loc, dummy_bug_loc])
+        monkeypatch.setattr(
+            sm.backend,
+            "get_bug_loc_snippets_new",
+            lambda loc: [dummy_bug_loc, dummy_bug_loc],
+        )
 
         monkeypatch.setattr("app.search.search_manage.print_banner", lambda msg: None)
-        monkeypatch.setattr("app.search.search_manage.print_acr", lambda msg, title: None)
+        monkeypatch.setattr(
+            "app.search.search_manage.print_acr", lambda msg, title: None
+        )
 
-        bug_locations, msg_thread = sm.search_iterative(dummy_task, sbfl_result, reproducer_result, None)
+        bug_locations, msg_thread = sm.search_iterative(
+            dummy_task, sbfl_result, reproducer_result, None
+        )
         # Although duplicates are returned, the method returns new_bug_locations (with duplicates) as is.
         assert len(bug_locations) == 2
         # Verify that the processed file exists.
@@ -237,7 +286,9 @@ class TestSearchManager:
         assert processed_file.exists()
         assert isinstance(msg_thread, DummyMessageThread)
 
-    def test_search_iterative_failed_bug_location_extraction(self, monkeypatch, tmp_path):
+    def test_search_iterative_failed_bug_location_extraction(
+        self, monkeypatch, tmp_path
+    ):
         """
         Test the branch where bug location extraction fails (get_bug_loc_snippets_new returns empty list)
         and the search agent is prompted to re-generate its response.
@@ -253,26 +304,34 @@ class TestSearchManager:
         def dummy_generator(issue, sbfl, reproducer):
             dummy_thread = DummyMessageThread()
             yield ("dummy agent search response", dummy_thread)
+
         monkeypatch.setattr(
-            agent_search, "generator",
-            lambda issue, sbfl, reproducer: dummy_generator(issue, sbfl, reproducer)
+            agent_search,
+            "generator",
+            lambda issue, sbfl, reproducer: dummy_generator(issue, sbfl, reproducer),
         )
 
         bug_loc_dict = {
             "file": "dummy.py",
             "method": "test_method",
             "class": "Dummy",
-            "intended_behavior": "beh"
+            "intended_behavior": "beh",
         }
         selected_apis = json.dumps({"API_calls": [], "bug_locations": [bug_loc_dict]})
-        monkeypatch.setattr(agent_proxy, "run_with_retries", lambda resp: (selected_apis, []))
+        monkeypatch.setattr(
+            agent_proxy, "run_with_retries", lambda resp: (selected_apis, [])
+        )
 
         # Simulate failure to extract any bug location code.
         monkeypatch.setattr(sm.backend, "get_bug_loc_snippets_new", lambda loc: [])
         monkeypatch.setattr("app.search.search_manage.print_banner", lambda msg: None)
-        monkeypatch.setattr("app.search.search_manage.print_acr", lambda msg, title: None)
+        monkeypatch.setattr(
+            "app.search.search_manage.print_acr", lambda msg, title: None
+        )
 
-        bug_locations, msg_thread = sm.search_iterative(dummy_task, sbfl_result, reproducer_result, None)
+        bug_locations, msg_thread = sm.search_iterative(
+            dummy_task, sbfl_result, reproducer_result, None
+        )
         # Expect an empty bug location list.
         assert bug_locations == []
         assert isinstance(msg_thread, DummyMessageThread)
@@ -296,14 +355,23 @@ class TestSearchManager:
         def dummy_generator(issue, sbfl, reproducer):
             dummy_thread = DummyMessageThread()
             yield ("dummy agent search response", dummy_thread)
+
         monkeypatch.setattr(
-            agent_search, "generator",
-            lambda issue, sbfl, reproducer: dummy_generator(issue, sbfl, reproducer)
+            agent_search,
+            "generator",
+            lambda issue, sbfl, reproducer: dummy_generator(issue, sbfl, reproducer),
         )
 
-        selected_apis = json.dumps({"API_calls": ["dummy_api_call"], "bug_locations": []})
-        monkeypatch.setattr(agent_proxy, "run_with_retries", lambda resp: (selected_apis, []))
-        monkeypatch.setattr("app.search.search_manage.parse_function_invocation", lambda s: ("dummy_func", ["value1"]))
+        selected_apis = json.dumps(
+            {"API_calls": ["dummy_api_call"], "bug_locations": []}
+        )
+        monkeypatch.setattr(
+            agent_proxy, "run_with_retries", lambda resp: (selected_apis, [])
+        )
+        monkeypatch.setattr(
+            "app.search.search_manage.parse_function_invocation",
+            lambda s: ("dummy_func", ["value1"]),
+        )
 
         # Define a dummy function with a __wrapped__ attribute.
         def inner_dummy_func(self, arg1):
@@ -311,19 +379,30 @@ class TestSearchManager:
 
         def dummy_func_with_wrapped(self, arg1):
             return inner_dummy_func(self, arg1)
+
         # Set the __wrapped__ attribute to simulate a wrapped function.
         dummy_func_with_wrapped.__wrapped__ = inner_dummy_func
-        sm.backend.dummy_func = dummy_func_with_wrapped.__get__(sm.backend, type(sm.backend))
+        sm.backend.dummy_func = dummy_func_with_wrapped.__get__(
+            sm.backend, type(sm.backend)
+        )
 
         monkeypatch.setattr("app.search.search_manage.print_banner", lambda msg: None)
-        monkeypatch.setattr("app.search.search_manage.print_acr", lambda msg, title: None)
+        monkeypatch.setattr(
+            "app.search.search_manage.print_acr", lambda msg, title: None
+        )
 
-        bug_locations, msg_thread = sm.search_iterative(dummy_task, sbfl_result, reproducer_result, None)
+        bug_locations, msg_thread = sm.search_iterative(
+            dummy_task, sbfl_result, reproducer_result, None
+        )
         # In this branch, API calls are processed and no bug locations are returned.
         assert bug_locations == []
         assert isinstance(msg_thread, DummyMessageThread)
         # Verify that the tool call layer recorded the API call.
         assert len(sm.tool_call_layers) == 1
         assert sm.tool_call_layers[0] == [
-            {"func_name": "dummy_func", "arguments": {"arg1": "value1"}, "call_ok": True}
+            {
+                "func_name": "dummy_func",
+                "arguments": {"arg1": "value1"},
+                "call_ok": True,
+            }
         ]

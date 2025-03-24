@@ -8,6 +8,7 @@ import pytest
 import app.post_process as pp
 from app.post_process import ExtractStatus
 
+
 # =============================================================================
 # Test for count_and_organize_tasks
 # =============================================================================
@@ -25,7 +26,9 @@ def test_count_and_organize_tasks(tmp_path):
     task_list = ["task1"]
     task_list_name = "category1"
     task_exp_names = [d.name for d in [task1_dir, other_dir]]
-    message = pp.count_and_organize_tasks(task_list, task_list_name, task_exp_names, str(expr_dir))
+    message = pp.count_and_organize_tasks(
+        task_list, task_list_name, task_exp_names, str(expr_dir)
+    )
 
     # Check that the message contains expected counts and task id.
     assert "Total number of tasks in category1: 1/2" in message
@@ -38,6 +41,7 @@ def test_count_and_organize_tasks(tmp_path):
     assert not (expr_dir / "task1_result").exists()
     # other_result remains in the original experiment directory.
     assert (expr_dir / "other_result").exists()
+
 
 # =============================================================================
 # Tests for record_extract_status and read_extract_status
@@ -67,6 +71,7 @@ def test_record_and_read_extract_status(tmp_path):
     expected_best_file = record_file.with_name("extracted_patch_0.diff")
     assert str(best_file) == str(expected_best_file)
 
+
 # =============================================================================
 # Test for get_final_patch_path
 # =============================================================================
@@ -75,14 +80,21 @@ def test_get_final_patch_path(tmp_path):
     indiv_dir.mkdir()
     record_file = indiv_dir / "extract_status.json"
     # Write a record with a good status.
-    json.dump({"extract_status": [ExtractStatus.APPLICABLE_PATCH.value]}, record_file.open("w"), indent=4)
+    json.dump(
+        {"extract_status": [ExtractStatus.APPLICABLE_PATCH.value]},
+        record_file.open("w"),
+        indent=4,
+    )
     final_path = pp.get_final_patch_path(str(indiv_dir))
     assert final_path is not None
 
     # Now write a record with NO_PATCH.
-    record_file.write_text(json.dumps({"extract_status": [ExtractStatus.NO_PATCH.value]}, indent=4))
+    record_file.write_text(
+        json.dumps({"extract_status": [ExtractStatus.NO_PATCH.value]}, indent=4)
+    )
     final_path = pp.get_final_patch_path(str(indiv_dir))
     assert final_path is None
+
 
 # =============================================================================
 # Test for is_valid_json
@@ -98,6 +110,7 @@ def test_is_valid_json():
     assert status == ExtractStatus.NOT_VALID_JSON
     assert data is None
 
+
 # =============================================================================
 # Test for convert_response_to_diff
 # =============================================================================
@@ -110,7 +123,7 @@ def test_convert_response_to_diff(monkeypatch, tmp_path):
     task_dir.mkdir()
     meta = {
         "task_info": {"base_commit": "dummy_commit"},
-        "setup_info": {"repo_path": str(task_dir)}
+        "setup_info": {"repo_path": str(task_dir)},
     }
     (task_dir / "meta.json").write_text(json.dumps(meta))
 
@@ -122,6 +135,7 @@ def test_convert_response_to_diff(monkeypatch, tmp_path):
         def __init__(self):
             self.filename = "dummy_file.txt"
             self.before = "old code"
+
     dummy_edit = DummyEdit()
 
     # Patch parse_edits to return a list with our dummy edit.
@@ -130,22 +144,37 @@ def test_convert_response_to_diff(monkeypatch, tmp_path):
     monkeypatch.setattr(pp, "is_test_file", lambda filename: False)
     # Patch repo_clean_changes to do nothing.
     monkeypatch.setattr(pp.apputils, "repo_clean_changes", lambda: None)
+
     # Patch run_command to return a dummy diff.
     class DummyCompletedProcess:
         def __init__(self, text):
             self.stdout = text.encode("utf-8")
-    monkeypatch.setattr(pp.apputils, "run_command", lambda cmd, **kwargs: DummyCompletedProcess("dummy diff"))
+
+    monkeypatch.setattr(
+        pp.apputils,
+        "run_command",
+        lambda cmd, **kwargs: DummyCompletedProcess("dummy diff"),
+    )
     # Patch repo_reset_and_clean_checkout to do nothing.
-    monkeypatch.setattr(pp.apputils, "repo_reset_and_clean_checkout", lambda commit: None)
+    monkeypatch.setattr(
+        pp.apputils, "repo_reset_and_clean_checkout", lambda commit: None
+    )
     # Patch find_file to always "find" the dummy file.
-    monkeypatch.setattr(pp.apputils, "find_file", lambda repo, target: str(Path(repo) / target))
+    monkeypatch.setattr(
+        pp.apputils, "find_file", lambda repo, target: str(Path(repo) / target)
+    )
     # Patch apply_edit to simulate a successful edit application.
     monkeypatch.setattr(pp, "apply_edit", lambda edit, found_file: found_file)
 
-    status, summary, diff = pp.convert_response_to_diff(response, str(task_dir), standalone_mode=True)
+    status, summary, diff = pp.convert_response_to_diff(
+        response, str(task_dir), standalone_mode=True
+    )
     # Expect a successful extraction.
-    assert status == ExtractStatus.APPLICABLE_PATCH, f"Expected APPLICABLE_PATCH, got {status}"
+    assert (
+        status == ExtractStatus.APPLICABLE_PATCH
+    ), f"Expected APPLICABLE_PATCH, got {status}"
     assert diff == "dummy diff"
+
 
 # =============================================================================
 # Test for extract_diff_one_instance
@@ -154,9 +183,12 @@ def test_extract_diff_one_instance(tmp_path):
     # When the raw patch file does not exist.
     raw_patch_file = str(tmp_path / "nonexistent.patch")
     extracted_file = str(tmp_path / "extracted.diff")
-    status, summary = pp.extract_diff_one_instance(raw_patch_file, extracted_file, standalone_mode=True)
+    status, summary = pp.extract_diff_one_instance(
+        raw_patch_file, extracted_file, standalone_mode=True
+    )
     assert status == ExtractStatus.NO_PATCH
     assert "No raw patch file" in summary
+
 
 # =============================================================================
 # Test for organize_experiment_results
@@ -180,6 +212,7 @@ def test_organize_experiment_results(tmp_path):
     assert moved_task_dir.exists()
     assert not task_dir.exists()
 
+
 # =============================================================================
 # Test for extract_swe_bench_input
 # =============================================================================
@@ -196,6 +229,7 @@ def test_extract_swe_bench_input(tmp_path, monkeypatch):
     (task_dir / "meta.json").write_text(json.dumps(meta))
     # Patch common.SELECTED_MODEL so that its name is "dummy-model".
     from app import model
+
     dummy_model = type("DummyModel", (), {"name": "dummy-model"})
     model.common.SELECTED_MODEL = dummy_model
     # Create a selected_patch.json file with a chosen patch name.
@@ -215,6 +249,7 @@ def test_extract_swe_bench_input(tmp_path, monkeypatch):
     assert result["model_patch"] == "dummy diff content"
     assert result["model_name_or_path"] == "dummy-model"
 
+
 # =============================================================================
 # Test for extract_organize_and_form_input (wrapper)
 # =============================================================================
@@ -228,18 +263,26 @@ def test_extract_organize_and_form_input(tmp_path, monkeypatch):
     meta = {
         "task_id": "task1",
         "task_info": {"base_commit": "dummy_commit"},
-        "setup_info": {"repo_path": str(task_dir)}
+        "setup_info": {"repo_path": str(task_dir)},
     }
     (task_dir / "meta.json").write_text(json.dumps(meta))
     # Create a dummy raw patch file.
     raw_patch_file = task_dir / "agent_patch_raw_1"
     raw_patch_file.write_text("dummy patch content")
     # Patch functions to bypass extraction (simulate successful extraction).
-    monkeypatch.setattr(pp, "extract_diff_one_instance", lambda raw, ext, standalone_mode=False: (ExtractStatus.APPLICABLE_PATCH, ""))
+    monkeypatch.setattr(
+        pp,
+        "extract_diff_one_instance",
+        lambda raw, ext, standalone_mode=False: (ExtractStatus.APPLICABLE_PATCH, ""),
+    )
     monkeypatch.setattr(pp, "record_extract_status", lambda d, s: None)
     monkeypatch.setattr(pp, "organize_experiment_results", lambda d: None)
     # Patch extract_swe_bench_input to simply return a dummy file path.
-    monkeypatch.setattr(pp, "extract_swe_bench_input", lambda d: os.path.join(d, "predictions_for_swebench.json"))
+    monkeypatch.setattr(
+        pp,
+        "extract_swe_bench_input",
+        lambda d: os.path.join(d, "predictions_for_swebench.json"),
+    )
 
     pp.extract_organize_and_form_input(str(expr_dir))
     predictions_file = Path(expr_dir) / "predictions_for_swebench.json"
@@ -247,6 +290,7 @@ def test_extract_organize_and_form_input(tmp_path, monkeypatch):
     predictions_file.write_text("dummy predictions")
     assert predictions_file.exists()
     assert predictions_file.read_text() == "dummy predictions"
+
 
 # =============================================================================
 # Test for organize_and_form_input (wrapper)

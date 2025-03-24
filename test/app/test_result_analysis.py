@@ -16,12 +16,14 @@ from app.result_analysis import (
 )
 import app.utils as apputils
 
+
 ###############################################################################
 # Define a dummy context manager for apputils.cd
 ###############################################################################
 @contextmanager
 def dummy_cd(path):
     yield
+
 
 ###############################################################################
 # DummyModel to simulate model.call responses (if needed in future tests)
@@ -39,6 +41,7 @@ class DummyModel:
         self.call_count += 1
         return (response,)
 
+
 ###############################################################################
 # Test for get_instance_names_from_dir
 ###############################################################################
@@ -55,6 +58,7 @@ def test_get_instance_names_from_dir(tmp_path):
     names = get_instance_names_from_dir(tmp_path)
     assert set(names) == {"taskA", "taskB", "taskC"}
 
+
 ###############################################################################
 # Test for get_resolved
 ###############################################################################
@@ -70,6 +74,7 @@ def test_get_resolved(tmp_path):
     report_file.write_text(json.dumps(data))
     resolved = get_resolved(tmp_path)
     assert resolved == sorted(["taskA", "taskC"])
+
 
 ###############################################################################
 # Test analyze_one_task
@@ -103,24 +108,29 @@ def test_analyze_one_task(tmp_path, monkeypatch):
     }
     meta_file = task_dir / "meta.json"
     meta_file.write_text(json.dumps(meta))
-    
+
     # Monkeypatch apputils.cd and repo_reset_and_clean_checkout to do nothing.
     monkeypatch.setattr(apputils, "cd", dummy_cd)
     monkeypatch.setattr(apputils, "repo_reset_and_clean_checkout", lambda commit: None)
-    
+
     # Record the model_patch argument passed to compare_fix_locations.
     recorded = {}
+
     def dummy_compare_fix_locations(model_patch, dev_patch_arg, project_path):
         recorded["model_patch"] = model_patch
         return ("dummy_model_extra", True, "dummy_dev_extra")
+
     # Override compare_fix_locations in app.result_analysis.
-    monkeypatch.setattr("app.result_analysis.compare_fix_locations", dummy_compare_fix_locations)
-    
+    monkeypatch.setattr(
+        "app.result_analysis.compare_fix_locations", dummy_compare_fix_locations
+    )
+
     result = analyze_one_task(str(task_dir))
     assert result == ("dummy_model_extra", True, "dummy_dev_extra")
     # The expected model_patch is the one with the highest suffix number.
     expected_model_patch = str(patch2)
     assert recorded.get("model_patch") == expected_model_patch
+
 
 ###############################################################################
 # Test analyze
@@ -144,24 +154,28 @@ def test_analyze(tmp_path, monkeypatch, capsys):
     (expr_dir / "no_patch").mkdir()
     report_dir = expr_dir / "report"
     report_dir.mkdir()
-    
+
     # Create one dummy instance in each.
     (expr_dir / "applicable_patch" / "taskA_extra_001").mkdir()
     (expr_dir / "raw_patch_but_unmatched" / "taskB_extra_002").mkdir()
     (expr_dir / "raw_patch_but_unparsed" / "taskC_extra_003").mkdir()
     (expr_dir / "no_patch" / "taskD_extra_004").mkdir()
-    
+
     # Create report.json with resolved instances.
     report_data = {"resolved": ["taskA", "taskC"]}
     (report_dir / "report.json").write_text(json.dumps(report_data))
-    
+
     # Monkeypatch analyze_one_task to return a dummy tuple.
-    monkeypatch.setattr("app.result_analysis.analyze_one_task", lambda task_expr_dir: ("dummy_model_extra", True, "dummy_dev_extra"))
-    
+    monkeypatch.setattr(
+        "app.result_analysis.analyze_one_task",
+        lambda task_expr_dir: ("dummy_model_extra", True, "dummy_dev_extra"),
+    )
+
     # Override emojis.encode so that it returns its input unchanged.
     import emojis
+
     monkeypatch.setattr(emojis, "encode", lambda s: s)
-    
+
     # Run analyze and capture output.
     analyze(str(expr_dir))
     captured = capsys.readouterr().out
@@ -173,4 +187,4 @@ def test_analyze(tmp_path, monkeypatch, capsys):
     assert "Applicable but not resolved:" in captured
     # Check that output contains at least one expected emoji indicator.
     lower_out = captured.lower()
-    assert (":thumbsup:" in lower_out or ":collision:" in lower_out)
+    assert ":thumbsup:" in lower_out or ":collision:" in lower_out

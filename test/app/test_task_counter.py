@@ -1,6 +1,7 @@
 import pytest
 import app.task_counter as tc
 
+
 # Fixture to reset the counters before each test.
 @pytest.fixture(autouse=True)
 def reset_task_counter():
@@ -9,10 +10,12 @@ def reset_task_counter():
     tc.init_total_num_task_groups(0)
     tc.num_completed_task_groups.value = 0
 
+
 def test_init_total_num_tasks():
     """Verify that init_total_num_tasks correctly sets the global total_num_tasks."""
     tc.init_total_num_tasks(10)
     assert tc.total_num_tasks == 10
+
 
 def test_incre_completed_tasks():
     """
@@ -26,6 +29,7 @@ def test_incre_completed_tasks():
     count2 = tc.incre_completed_tasks()
     assert count2 == 2
 
+
 def test_incre_completed_task_groups():
     """
     Verify that incre_completed_task_groups correctly increments the global completed task groups counter.
@@ -37,6 +41,7 @@ def test_incre_completed_task_groups():
     assert count1 == 1
     count2 = tc.incre_completed_task_groups()
     assert count2 == 2
+
 
 def test_incre_task_return_msg():
     """
@@ -54,6 +59,7 @@ def test_incre_task_return_msg():
     msg2 = tc.incre_task_return_msg()
     expected2 = ">>> Completed 2/5 tasks. For groups, completed 0/3 so far."
     assert msg2 == expected2
+
 
 def test_incre_task_group_return_msg():
     """

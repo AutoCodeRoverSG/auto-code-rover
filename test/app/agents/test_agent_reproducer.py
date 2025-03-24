@@ -23,6 +23,7 @@ from test.pytest_utils import *
 # Tests that require SELECTED_MODEL are patched via patch.dict on app.model.common.__dict__
 ###############################################################################
 
+
 ###############################################################################
 # Test 1: _issue_has_reproduction_steps returns True when a reproducible example exists.
 ###############################################################################
@@ -36,15 +37,19 @@ def test_issue_has_reproduction_steps_true():
     # Set up the dummy response.
     dummy_response = '{"has-reproducible-example": true}'
     from app.model import common as common_mod
+
     common_mod.SELECTED_MODEL.call.return_value = (dummy_response,)
 
     issue_statement = "Issue with reproducible steps."
     reproducible, thread = TestAgent._issue_has_reproduction_steps(issue_statement)
     assert reproducible is True
     # Verify that the thread contains both system and user messages.
-    contents = [msg["content"] for msg in thread.messages if msg["role"] in ("system", "user")]
+    contents = [
+        msg["content"] for msg in thread.messages if msg["role"] in ("system", "user")
+    ]
     assert any("You are an experienced software engineer" in c for c in contents)
     assert any("Here is an issue:" in c for c in contents)
+
 
 ###############################################################################
 # Test 2: _issue_has_reproduction_steps returns False when no reproducible example exists.
@@ -57,11 +62,13 @@ def test_issue_has_reproduction_steps_false():
     """
     dummy_response = '{"has-reproducible-example": false}'
     from app.model import common as common_mod
+
     common_mod.SELECTED_MODEL.call.return_value = (dummy_response,)
 
     issue_statement = "Issue without reproducible steps."
     reproducible, _ = TestAgent._issue_has_reproduction_steps(issue_statement)
     assert reproducible is False
+
 
 ###############################################################################
 # Test 3: convert_response_to_test returns expected test content for various cases.
@@ -94,6 +101,7 @@ def test_convert_response_to_test():
     result = TestAgent.convert_response_to_test(response_none)
     assert result is None
 
+
 ###############################################################################
 # Test 4: _write_test constructs the thread and extracts test content correctly.
 ###############################################################################
@@ -109,6 +117,7 @@ def test_write_test(mock_print_acr):
     """
     dummy_response = "```\nprint('test')\n```"
     from app.model import common as common_mod
+
     common_mod.SELECTED_MODEL.call.return_value = (dummy_response,)
 
     # Use the dummy Task imported from pytest_utils.
@@ -118,6 +127,7 @@ def test_write_test(mock_print_acr):
         response, test_content, thread = agent._write_test([])
         assert test_content.strip() == "print('test')"
         mock_print_acr.assert_called_with(INITIAL_REQUEST)
+
 
 ###############################################################################
 # Test 5: Generator function for reproducer test generation.
@@ -136,10 +146,11 @@ def test_generator_function(mock_print_reproducer, mock_print_acr):
     response_two_blocks = "```\nblock1\n```\n```\nblock2\n```"
     response_one_block = "```\ncorrect\n```"
     from app.model import common as common_mod
+
     common_mod.SELECTED_MODEL.call.side_effect = [
         (response_two_blocks,),
         (response_one_block,),
-        ("extra",)  # extra response to cover any further call.
+        ("extra",),  # extra response to cover any further call.
     ]
     issue_statement = "Test issue"
     gen = generator(issue_statement)
@@ -161,6 +172,7 @@ def test_generator_function(mock_print_reproducer, mock_print_acr):
     except Exception:
         pass
 
+
 ###############################################################################
 # Test 6: _select_feedback_handles returns correct feedback handles.
 ###############################################################################
@@ -181,6 +193,7 @@ def test_select_feedback_handles():
     handles = agent._select_feedback_handles(10)
     assert handles == ["n1", "h1", "h2"]
 
+
 ###############################################################################
 # Test 7: _register_reproducing_test registers the test correctly.
 ###############################################################################
@@ -199,6 +212,7 @@ def test_register_reproducing_test():
     assert agent._responses[handle] == response
     assert agent._tests[handle] == test_content
     assert handle in agent._history
+
 
 ###############################################################################
 # Test 8: _register_non_reproducing_test registers a failing test and adds feedback.
@@ -225,6 +239,7 @@ def test_register_non_reproducing_test():
     assert "did not reproduce" in feedback
     assert "1" in feedback
 
+
 ###############################################################################
 # Test 9: add_feedback raises ValueError for an unknown test handle.
 ###############################################################################
@@ -235,6 +250,7 @@ def test_add_feedback_raises():
     agent = TestAgent(task=MagicMock(), task_dir="dummy")
     with pytest.raises(ValueError):
         agent.add_feedback("nonexistent", "some feedback")
+
 
 ###############################################################################
 # Test 10: _construct_init_thread returns a thread with proper initial messages.
@@ -253,6 +269,7 @@ def test_construct_init_thread():
     assert "You are an experienced software engineer" in contents[0]
     assert any("Here is an issue:" in content for content in contents)
 
+
 ###############################################################################
 # Test 11: _feedback_from_repro_result returns the expected formatted string.
 ###############################################################################
@@ -268,6 +285,7 @@ def test_feedback_from_repro_result():
     assert "2" in feedback
     assert "stdout content" in feedback
     assert "stderr content" in feedback
+
 
 ###############################################################################
 # Test 12: save_test writes the test file correctly.

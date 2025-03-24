@@ -22,11 +22,13 @@ from litellm.utils import ModelResponse, Choices, Message
 
 # --- Test calc_cost and get_overall_exec_stats ---
 
+
 def test_calc_cost_and_stats(monkeypatch):
     # Create a dummy LiteLLMGeneric instance with known cost rates.
     model = LiteLLMGeneric("dummy-model", 0.1, 0.2)
     # Reset thread_cost (which is a threading.local(), so set attributes on common.thread_cost)
     from app.model import common
+
     common.thread_cost.process_cost = 0.0
     common.thread_cost.process_input_tokens = 0
     common.thread_cost.process_output_tokens = 0
@@ -47,17 +49,23 @@ def test_calc_cost_and_stats(monkeypatch):
     assert stats["total_tokens"] == 30
     assert stats["total_cost"] == 5.0
 
+
 # --- Test register_model and get_all_model_names ---
+
 
 def test_register_and_get_all_model_names():
     from app.model.common import MODEL_HUB, register_model, get_all_model_names
+
     MODEL_HUB.clear()
+
     # Create two dummy models by subclassing Model.
     class DummyModel(Model):
         def check_api_key(self) -> str:
             return "dummy"
+
         def setup(self) -> None:
             pass
+
         def call(self, messages: list[dict], **kwargs):
             pass
 
@@ -69,14 +77,18 @@ def test_register_and_get_all_model_names():
     assert "model1" in names
     assert "model2" in names
 
+
 # --- Test set_model with invalid model name ---
+
 
 def test_set_model_invalid(monkeypatch, capsys):
     from app.model.common import set_model
+
     monkeypatch.setattr(sys, "exit", dummy_sys_exit)
     with pytest.raises(SysExitException):
         set_model("invalid_model")
     captured = capsys.readouterr().out
     assert "Invalid model name" in captured
+
 
 # TODO: Add more tests for set_model with valid model names.

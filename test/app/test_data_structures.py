@@ -2,6 +2,7 @@ import json
 import pytest
 from app.data_structures import FunctionCallIntent, OpenaiFunction
 
+
 # Define a dummy OpenaiFunction for testing.
 class DummyOpenaiFunction:
     def __init__(self, arguments, name):
@@ -18,6 +19,7 @@ class DummyOpenaiFunction:
     def __str__(self):
         return f"DummyOpenaiFunction(name={self.name}, arguments={self.arguments})"
 
+
 # Automatically replace OpenaiFunction in the module with DummyOpenaiFunction for tests.
 @pytest.fixture(autouse=True)
 def use_dummy_openai_function(monkeypatch):
@@ -25,6 +27,7 @@ def use_dummy_openai_function(monkeypatch):
         "app.data_structures.OpenaiFunction",
         DummyOpenaiFunction,
     )
+
 
 def test_function_call_intent_default():
     func_name = "test_func"
@@ -41,16 +44,20 @@ def test_function_call_intent_default():
     assert intent.openai_func.arguments == expected_args
     assert intent.openai_func.name == func_name
 
+
 def test_function_call_intent_with_openai_func():
     func_name = "another_func"
     arguments = {"x": "1"}
     # Create a dummy openai function.
-    dummy_func = DummyOpenaiFunction(arguments=json.dumps({"x": "override"}), name="dummy")
+    dummy_func = DummyOpenaiFunction(
+        arguments=json.dumps({"x": "override"}), name="dummy"
+    )
     intent = FunctionCallIntent(func_name, arguments, dummy_func)
     # The provided openai_func should be used.
     assert intent.openai_func == dummy_func
     # And arg_values should still reflect the passed arguments.
     assert intent.arg_values == arguments
+
 
 def test_to_dict():
     func_name = "func_to_dict"
@@ -59,6 +66,7 @@ def test_to_dict():
     result = intent.to_dict()
     expected = {"func_name": func_name, "arguments": arguments}
     assert result == expected
+
 
 def test_to_dict_with_result():
     func_name = "func_with_result"
@@ -70,6 +78,7 @@ def test_to_dict_with_result():
     expected_false = {"func_name": func_name, "arguments": arguments, "call_ok": False}
     assert result_true == expected_true
     assert result_false == expected_false
+
 
 def test_str_method():
     func_name = "str_func"

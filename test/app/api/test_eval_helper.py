@@ -16,15 +16,18 @@ eval_helper.test_failed.__test__ = False
 
 # --- Tests for the log parsers ---
 
+
 def test_parse_log_pytest():
     # Sample log lines for pytest format.
     # e.g. "PASSED test_func1" and "FAILED test_func2 - some error"
-    log = textwrap.dedent("""\
+    log = textwrap.dedent(
+        """\
         PASSED test_func1
         FAILED test_func2 - AssertionError
         SKIPPED test_func3
         ERROR test_func4 - Exception
-    """)
+    """
+    )
     result = parse_log_pytest(log)
     # We expect mapping: test_func1 -> PASSED, test_func2 -> FAILED, etc.
     assert result.get("test_func1") == "PASSED"
@@ -32,25 +35,39 @@ def test_parse_log_pytest():
     assert result.get("test_func3") == "SKIPPED"
     assert result.get("test_func4") == "ERROR"
 
+
 def test_parse_log_django():
     # Django logs typically have patterns like:
     # "some_test ... ok", "another_test ... skipped", "yetanother_test ... FAIL", etc.
-    log = textwrap.dedent("""\
+    log = textwrap.dedent(
+        """\
         test_app.tests.TestSomething.test_one ... ok
         test_app.tests.TestSomething.test_two ... skipped
         test_app.tests.TestSomething.test_three ... FAIL
         FAIL: test_app.tests.TestSomething.test_four
         ERROR: test_app.tests.TestSomething.test_five
         test_app.tests.TestSomething.test_six ... ERROR
-    """)
+    """
+    )
     result = parse_log_django(log)
     # Expected status based on our parser.
-    assert result.get("test_app.tests.TestSomething.test_one") == TestStatus.PASSED.value
-    assert result.get("test_app.tests.TestSomething.test_two") == TestStatus.SKIPPED.value
-    assert result.get("test_app.tests.TestSomething.test_three") == TestStatus.FAILED.value
-    assert result.get("test_app.tests.TestSomething.test_four") == TestStatus.FAILED.value
-    assert result.get("test_app.tests.TestSomething.test_five") == TestStatus.ERROR.value
+    assert (
+        result.get("test_app.tests.TestSomething.test_one") == TestStatus.PASSED.value
+    )
+    assert (
+        result.get("test_app.tests.TestSomething.test_two") == TestStatus.SKIPPED.value
+    )
+    assert (
+        result.get("test_app.tests.TestSomething.test_three") == TestStatus.FAILED.value
+    )
+    assert (
+        result.get("test_app.tests.TestSomething.test_four") == TestStatus.FAILED.value
+    )
+    assert (
+        result.get("test_app.tests.TestSomething.test_five") == TestStatus.ERROR.value
+    )
     assert result.get("test_app.tests.TestSomething.test_six") == TestStatus.ERROR.value
+
 
 def test_parse_log_pytest_v2():
     # Sample log for pytest v2: includes ANSI escape sequences and a hunk for FAILED.
@@ -59,29 +76,35 @@ def test_parse_log_pytest_v2():
     # The escape sequences should be removed; we expect test_func_v2 mapped to FAILED.
     assert result.get("test_func_v2") == "FAILED"
 
+
 def test_parse_log_seaborn():
     # Seaborn log sample: failed line starts with "FAILED", passed line has " PASSED " in it.
-    log = textwrap.dedent("""\
+    log = textwrap.dedent(
+        """\
         dummy_test PASSED some extra text
         FAILED another_test
-    """)
+    """
+    )
     result = parse_log_seaborn(log)
     # For FAILED, we split and take the second token.
     assert result.get("another_test") == TestStatus.FAILED.value
     # For PASSED, if the second token equals PASSED, then key is the first token.
     assert result.get("dummy_test") == TestStatus.PASSED.value
 
+
 def test_parse_log_sympy():
     # Sample sympy log: first part uses regex and then additional lines.
     # Create a fake match pattern. The regex pattern in parse_log_sympy is:
     # r"(_*) (.*)\.py:(.*) (_*)"
     # We can simulate one match and then additional lines.
-    log = textwrap.dedent("""\
+    log = textwrap.dedent(
+        """\
         ____ dummy.py:10 ____
         test_sympy1 E
         test_sympy2 F
         test_sympy3 ok
-    """)
+    """
+    )
     result = parse_log_sympy(log)
     # From regex part, we expect one entry for "dummy.py:10"
     assert "dummy.py:10" in result
@@ -90,7 +113,9 @@ def test_parse_log_sympy():
     assert result.get("test_sympy2") == TestStatus.FAILED.value
     assert result.get("test_sympy3") == TestStatus.PASSED.value
 
+
 # --- Tests for get_logs_eval ---
+
 
 def test_get_logs_eval_success(tmp_path):
     # Create a temporary log file with a valid log (using pytest parser).
@@ -103,6 +128,7 @@ def test_get_logs_eval_success(tmp_path):
     assert parsed.get("test_eval1") == "PASSED"
     assert parsed.get("test_eval2") == "FAILED"
 
+
 def test_get_logs_eval_failure(tmp_path):
     # Create a temporary log file with error markers.
     log_content = f"{TESTS_ERROR}\nSome error occurred."
@@ -113,7 +139,9 @@ def test_get_logs_eval_failure(tmp_path):
     assert ok is False
     assert parsed == {}
 
+
 # --- Tests for test_passed and test_failed ---
+
 
 def test_test_passed_and_failed():
     # Create a simple status mapping.
@@ -131,7 +159,9 @@ def test_test_passed_and_failed():
     # If a test is PASSED, test_failed should be False.
     assert test_failed("case1", status_map) is False
 
+
 # --- Tests for get_eval_report, compute_fail_to_pass, compute_pass_to_pass, get_resolution_status ---
+
 
 def test_get_eval_report():
     # Create dummy gold results.
@@ -160,6 +190,7 @@ def test_get_eval_report():
     # And extra metrics for FAIL_TO_FAIL and PASS_TO_FAIL.
     assert report[FAIL_TO_FAIL]["success"] == ["t5"]
     assert report[PASS_TO_FAIL]["failure"] == ["t6"]
+
 
 def test_compute_metrics_and_resolution():
     # Create a sample report.

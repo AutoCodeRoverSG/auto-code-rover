@@ -16,8 +16,11 @@ from litellm.utils import ModelResponse, Choices, Message
 from app.log import log_and_print
 from test.pytest_utils import *
 
+
 # --- Dummy Response for Groq Models ---
-def DummyGroqResponse(content="Test response", input_tokens=1, output_tokens=2, tool_calls=None):
+def DummyGroqResponse(
+    content="Test response", input_tokens=1, output_tokens=2, tool_calls=None
+):
     """
     Create a dummy response that is a valid instance of ModelResponse using parse_obj.
     For Groq models, we simulate a response with fixed usage and one choice.
@@ -28,10 +31,12 @@ def DummyGroqResponse(content="Test response", input_tokens=1, output_tokens=2, 
     }
     return ModelResponse.parse_obj(data)
 
+
 # --- Dummy check function for Groq ---
 def dummy_check_api_key_groq(self):
     print("dummy_check_api_key_groq called")
     return "dummy-groq-key"
+
 
 # -------------------- Groq Model Call Tests --------------------
 
@@ -42,6 +47,7 @@ groq_models = {
     "Mixtral_8x7B": Mixtral_8x7B,
     "Gemma_7B": Gemma_7B,
 }
+
 
 @pytest.mark.parametrize("model_class", groq_models.values(), ids=groq_models.keys())
 def test_groq_model_call(monkeypatch, model_class):
@@ -73,9 +79,11 @@ def test_groq_model_call(monkeypatch, model_class):
 
     # --- Case 2: response_format = "json_object" ---
     captured_messages = []
+
     def dummy_completion(**kwargs):
         captured_messages.append(kwargs.get("messages"))
         return DummyGroqResponse()
+
     monkeypatch.setattr("litellm.completion", dummy_completion)
     messages = [{"role": "user", "content": "Hello"}]
     result = model.call(messages, response_format="json_object")

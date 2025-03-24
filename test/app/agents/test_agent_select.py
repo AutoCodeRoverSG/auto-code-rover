@@ -2,8 +2,9 @@ import json
 import pytest
 from app.data_structures import MessageThread
 from app.model import common
-from app.agents.agent_select import run 
+from app.agents.agent_select import run
 from test.pytest_utils import *  # Import any helper utilities
+
 
 def test_run_pr_review():
     """
@@ -12,15 +13,15 @@ def test_run_pr_review():
     The dummy model simulates:
       - Two initial analysis calls.
       - Three loop iterations returning JSON responses indicating patch number 2.
-    
+
     With two patches provided, the chosen patch should yield index 1 (zero-indexed).
     """
     responses = [
-        "dummy analysis 1",       # Analysis: root cause.
-        "dummy analysis 2",       # Analysis: resolution.
+        "dummy analysis 1",  # Analysis: root cause.
+        "dummy analysis 2",  # Analysis: resolution.
         '{"patch_number": 2, "reason": "patch2 is minimal"}',
         '{"patch_number": 2, "reason": "patch2 is minimal"}',
-        '{"patch_number": 2, "reason": "patch2 is minimal"}'
+        '{"patch_number": 2, "reason": "patch2 is minimal"}',
     ]
     dummy_model = DummyModel(responses)
     # Replace MODEL_HUB entry.
@@ -42,4 +43,6 @@ def test_run_pr_review():
         for msg in prefix_thread.messages
         if msg.get("role") in ("model", "assistant")
     )
-    assert json_found, "Expected a model/assistant message containing the JSON response was not found."
+    assert (
+        json_found
+    ), "Expected a model/assistant message containing the JSON response was not found."
