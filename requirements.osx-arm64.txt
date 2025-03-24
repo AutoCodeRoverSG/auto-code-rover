@@ -6,6 +6,7 @@ anyio==4.2.0
 astroid==3.2.3
 attrs==23.2.0
 beautifulsoup4==4.12.3
+black==25.1.0
 Brotli
 certifi==2024.7.4
 cffi
@@ -74,6 +75,7 @@ pylint==3.2.3
 pyro-api==0.1.2
 pyro-ppl==1.9.0
 PySocks
+pyright==1.1.397
 pytest==8.3.4
 pytest-cov==6.0.0
 python-dotenv==1.0.0
