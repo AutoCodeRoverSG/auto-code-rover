@@ -186,7 +186,6 @@ class TestSearchManager:
         # Define a dummy function with a self parameter.
         def dummy_func(self, arg1):
             return ("dummy result", None, True)
-
         # Attach dummy_func as a bound method to the backend.
         sm.backend.dummy_func = dummy_func.__get__(sm.backend, type(sm.backend))
 

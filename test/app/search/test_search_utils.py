@@ -7,7 +7,6 @@ from pathlib import Path
 
 from app.search.search_utils import *
 
-
 def test_is_test_file():
     # Setup: create a list of test file names
     test_files = [

@@ -21,7 +21,6 @@ from app.search.search_backend import (
 ## These functions are used as monkey-patched implementations for the actual functions.
 ## In Monkey-Patching, we temporarily replace the original function with a dummy function for testing purposes.
 
-
 # A fake implementation for find_python_files
 def fake_find_python_files(project_path: str):
     # Return a list with a single file in the project path.
@@ -59,18 +58,15 @@ def dummy_build_python_index(project_path: str):
         parsed_files,
     )
 
-
 # Dummy snippet generator.
 def dummy_get_code_snippets(file_name, start, end):
     return f"code from {file_name} lines {start}-{end}"
-
 
 class TestSearchBackend:
 
     def test_build_index(self, monkeypatch):
         # Create an instance of SearchBackend with a dummy project_path.
         sb = SearchBackend(project_path="dummy_project")
-
         # Clear the indices to start fresh.
         sb.class_index = {}
         sb.class_func_index = {}
@@ -96,7 +92,6 @@ class TestSearchBackend:
     def test_update_indices(self):
         # Create a SearchBackend instance with a dummy project path.
         sb = SearchBackend(project_path="dummy_project")
-
         # Reset indexes to empty to start with a known state.
         sb.class_index = {}
         sb.class_func_index = {}
@@ -112,7 +107,6 @@ class TestSearchBackend:
         dummy_function_index = {"func": [("file2.py", (20, 30))]}
         dummy_class_relation_index = {"A": ["B", "C"]}
         dummy_parsed_files = ["file1.py", "file2.py"]
-
         # Call _update_indices with dummy data.
         sb._update_indices(
             dummy_class_index,
@@ -121,7 +115,6 @@ class TestSearchBackend:
             dummy_class_relation_index,
             dummy_parsed_files,
         )
-
         # Verify that the attributes have been updated as expected.
         assert sb.class_index == dummy_class_index
         assert sb.class_func_index == dummy_class_func_index
@@ -295,7 +288,6 @@ class TestSearchBackend:
         assert res_a.class_name == "ClassA"
         assert res_a.func_name == "common"
         assert res_a.code == expected_code_a
-
         # Verify result from ClassB.
         res_b = next(r for r in results if r.file_path == dummy_file2)
         expected_code_b = dummy_get_code_snippets(dummy_file2, 25, 35)
@@ -408,14 +400,12 @@ class TestSearchBackend:
         assert res_top.class_name is None
         assert res_top.func_name == "top_func"
         assert res_top.code == expected_top
-
         # Verify ClassX method result.
         res_classx = next(r for r in results if r.file_path == str(file2))
         expected_classx = dummy_get_code_snippets(str(file2), 2, 4)
         assert res_classx.class_name == "ClassX"
         assert res_classx.func_name == "top_func"
         assert res_classx.code == expected_classx
-
         # Verify ClassY method result.
         res_classy = next(r for r in results if r.file_path == str(file3))
         expected_classy = dummy_get_code_snippets(str(file3), 2, 4)
@@ -425,7 +415,6 @@ class TestSearchBackend:
 
     def test_get_candidate_matched_py_files(self):
         sb = SearchBackend(project_path="dummy_project")
-
         # Set up parsed_files with absolute paths (using various cases)
         sb.parsed_files = [
             "/abs/path/Foo.py",
@@ -433,7 +422,6 @@ class TestSearchBackend:
             "/abs/path/Baz.txt",
             "/abs/path/otherfoo.Py",
         ]
-
         # Test 1: Find files ending with "foo.py" (case-insensitive).
         # Expected candidates: "/abs/path/Foo.py" and "/abs/path/otherfoo.Py"
         candidates = sb._get_candidate_matched_py_files("foo.py")
@@ -464,7 +452,6 @@ class TestSearchBackend:
 
         # Call get_class_full_snippet with a class name that doesn't exist.
         result, search_res, flag = sb.get_class_full_snippet("NonExisting")
-
         # Expect a message indicating that the class was not found, no search results, and flag False.
         expected_message = "Could not find class NonExisting in the codebase."
         assert result == expected_message
@@ -1540,7 +1527,6 @@ class TestSearchBackend:
         sb.parsed_files = [dummy_path]
         # Patch Path.read_text to return dummy content.
         from pathlib import Path
-
         monkeypatch.setattr(Path, "read_text", lambda self: "line1\nline2\nline3")
         tool_output, results, flag = sb.get_file_content("existing.py")
         expected = f"<file>existing.py</file> <code>line1\nline2\nline3</code>"
@@ -1683,12 +1669,10 @@ class TestSearchBackend:
         temp_file = temp_dir / "temp_file.py"
         # Write multiple lines so that line indices 5 to 15 are valid.
         temp_file.write_text("\n".join([f"line {i}" for i in range(1, 21)]))
-
         # Use the absolute temporary directory as the project path.
         sb = SearchBackend(project_path=str(temp_dir))
         # Ensure parsed_files contains the temporary file.
         sb.parsed_files = [str(temp_file)]
-
         bug_loc = {
             "file": "temp_file.py",  # should match the end of the temp file path
             "method": "do_work",
