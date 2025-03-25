@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - pytest-unit
+      - pytest-latest
       - pytest-integration
   pull_request:
     branches:
@@ -48,7 +48,7 @@ jobs:
       - name: Run tox tests
         run: |
           echo "Current branch: ${{ github.ref }}"
-          if [[ "${{ github.ref }}" == "refs/heads/pytest-unit" ]]; then
+          if [[ "${{ github.ref }}" == "refs/heads/pytest-latest" ]]; then
             echo "Running unit tests only."
             tox -e unit
           elif [[ "${{ github.ref }}" == "refs/heads/pytest-integration" ]]; then
