@@ -363,12 +363,12 @@ def test_anthropic_api_integration():
     # Step 1: Use the key from the environment if provided; otherwise, fall back to a dummy key.
     dummy_key = "sk-ant-dummy"
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY", dummy_key)
-    os.environ["ANTHROPIC_API_KEY"] = anthropic_key
-    if anthropic_key == dummy_key:
-        print("Using dummy ANTHROPIC_API_KEY:", anthropic_key)
-    else:
-        print("Using ANTHROPIC_API_KEY:", "***")
-
+    os.environ["ANTHROPIC_API_KEY"] = anthropic_key 
+    # if anthropic_key == dummy_key:
+    #     print("Using dummy ANTHROPIC_API_KEY:", anthropic_key)
+    # else:
+    #     print("Using ANTHROPIC_API_KEY:", "***")
+    
     # Step 2: Construct the command to run.
     command = "conda run -n auto-code-rover env PYTHONPATH=$(pwd) python app/main.py github-issue --output-dir output --setup-dir setup --model claude-3-haiku-20240307 --model-temperature 0.2 --task-id langchain-20453 --clone-link https://github.com/langchain-ai/langchain.git --commit-hash cb6e5e5 --issue-link https://github.com/langchain-ai/langchain/issues/20453"
     print("Running command:", command)
