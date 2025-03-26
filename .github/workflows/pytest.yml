@@ -49,7 +49,7 @@ jobs:
         run: |
           branch="${{ github.ref_name }}"
           echo "Current branch: $branch"
-          if [[ "$branch" =~ ^(pytest-integration|main)$ ]]; then
+          if [[ "$branch" =~ ^(main(-.*)?|feat/.*/integration-.*)$ ]]; then
             echo "Running unit + integration tests."
             tox -e unit,integration
           else
