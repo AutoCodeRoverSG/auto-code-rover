@@ -180,7 +180,7 @@ def set_swe_parser_args(parser: ArgumentParser) -> None:
     parser.add_argument(
         "--reproduce-and-review",
         action="store_true",
-        default=True,
+        default=False,
         help="Experimental: for swe-bench tasks, reproduce and review the generated patch",
     )
     parser.add_argument(
