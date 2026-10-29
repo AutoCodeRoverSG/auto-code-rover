@@ -24,6 +24,8 @@ from app.agents.patch_utils import apply_edit, parse_edits
 from app.model import common
 from app.search.search_utils import is_test_file
 
+META_FILE_NAME = "meta.json"
+
 
 def count_and_organize_tasks(
     task_list: list[str], task_list_name: str, task_exp_names: list[str], expr_dir: str
@@ -223,7 +225,7 @@ def convert_response_to_diff(
 
     # (1) get the meta data for this task
     # task_dir = os.path.dirname(raw_patch_file)
-    meta_file = pjoin(task_dir, "meta.json")
+    meta_file = pjoin(task_dir, META_FILE_NAME)
     with open(meta_file) as f:
         meta = json.load(f)
 
@@ -386,7 +388,7 @@ def extract_diffs_and_organize_tasks(expr_dir: str):
     # let's work on each individual task directory
     for task_dir in task_exp_dirs:
         # (1) gather some information from the meta file
-        meta_file = pjoin(task_dir, "meta.json")
+        meta_file = pjoin(task_dir, META_FILE_NAME)
         with open(meta_file) as f:
             meta = json.load(f)
         task_id = meta["task_id"]
@@ -481,7 +483,7 @@ def extract_swe_bench_input(dir: str):
     all_results = []
     for diff_file in diff_files:
         task_dir = os.path.dirname(diff_file)
-        meta_file = pjoin(task_dir, "meta.json")
+        meta_file = pjoin(task_dir, META_FILE_NAME)
         with open(meta_file) as f:
             meta = json.load(f)
 
