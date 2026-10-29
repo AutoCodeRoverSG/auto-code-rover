@@ -14,6 +14,8 @@ import emojis
 from app import utils as apputils
 from app.api.validation import compare_fix_locations
 
+SEPARATOR = "===================================="
+
 
 def analyze(expr_dir):
     resolved = get_resolved(expr_dir)
@@ -26,19 +28,19 @@ def analyze(expr_dir):
     # these should include all instances
     all_instances = set(applicable + unmatched + unparsed + no_patch)
     print(f"Total instances: {len(all_instances)}")
-    print("====================================")
+    print(SEPARATOR)
 
     print(f"No patch at all: {len(no_patch)}")
     pprint(no_patch)
-    print("====================================")
+    print(SEPARATOR)
 
     print(f"Unparsed: {len(unparsed)}")
     pprint(unparsed)
-    print("====================================")
+    print(SEPARATOR)
 
     print(f"Unmatched: {len(unmatched)}")
     pprint(unmatched)
-    print("====================================")
+    print(SEPARATOR)
 
     # interested in this
     applicable_but_not_resolved = sorted(list(set(applicable) - set(resolved)))
@@ -67,17 +69,17 @@ def analyze(expr_dir):
     # print
     tasks_changed_same_loc.sort()
     tasks_changed_diff_loc.sort(key=lambda x: x[0])
-    print("====================================")
+    print(SEPARATOR)
     print("Analyzing applicable but unresolved tasks ...")
 
-    print("====================================")
+    print(SEPARATOR)
     msg = emojis.encode(
         f":thumbsup: Tasks with same changed methods: {len(tasks_changed_same_loc)}"
     )
     print(msg)
     pprint(tasks_changed_same_loc)
 
-    print("====================================")
+    print(SEPARATOR)
     print(f"Tasks with different changed methods: {len(tasks_changed_diff_loc)}")
     for task, model_changed_extra, dev_changed_extra in tasks_changed_diff_loc:
         msg = emojis.encode(f":collision: {task}:\n")

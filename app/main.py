@@ -34,6 +34,8 @@ from app.post_process import (
 from app.raw_tasks import RawGithubTask, RawLocalTask, RawSweTask, RawTask
 from app.task import SweTask, Task
 
+DEVELOPER_PATCH_FILE_NAME = "developer_patch.diff"
+
 
 def main():
     register_all_models()
@@ -540,10 +542,10 @@ def evaluate_swe_issue_reproducer(
 
     individual_expr_dir = reproducer_file.parent
 
-    developer_patch_file = individual_expr_dir.joinpath("developer_patch.diff")
+    developer_patch_file = individual_expr_dir.joinpath(DEVELOPER_PATCH_FILE_NAME)
     if not developer_patch_file.exists():
         individual_expr_dir = individual_expr_dir.parent
-        developer_patch_file = individual_expr_dir.joinpath("developer_patch.diff")
+        developer_patch_file = individual_expr_dir.joinpath(DEVELOPER_PATCH_FILE_NAME)
     assert developer_patch_file.exists()
 
     report_dir = individual_expr_dir.joinpath(
@@ -610,7 +612,7 @@ def do_inference(python_task: Task, task_output_dir: str) -> bool:
                         log_file_name,
                         "meta.json",
                         "problem_statement.txt",
-                        "developer_patch.diff",
+                        DEVELOPER_PATCH_FILE_NAME,
                     ]:
                         f.unlink()
                     if f.is_dir():

@@ -11,6 +11,8 @@ from app import utils as app_utils
 from app.log import log_and_print
 from app.task import PlainTask, SweTask, Task
 
+META_FILE_NAME = "meta.json"
+
 
 class RawTask(ABC):
     @property
@@ -74,7 +76,7 @@ class RawSweTask(RawTask):
             "setup_info": self.setup_info,
             "task_info": self.task_info,
         }
-        with open(pjoin(output_dir, "meta.json"), "w") as f:
+        with open(pjoin(output_dir, META_FILE_NAME), "w") as f:
             json.dump(meta, f, indent=4)
         with open(pjoin(output_dir, "problem_statement.txt"), "w") as f:
             f.write(self.task_info["problem_statement"])
@@ -135,7 +137,7 @@ class RawGithubTask(RawTask):
             },
         }
 
-        meta_file = pjoin(output_dir, "meta.json")
+        meta_file = pjoin(output_dir, META_FILE_NAME)
 
         with open(meta_file, "w") as f:
             json.dump(meta, f, indent=4)
@@ -230,7 +232,7 @@ class RawLocalTask(RawTask):
             },
         }
 
-        meta_file = pjoin(output_dir, "meta.json")
+        meta_file = pjoin(output_dir, META_FILE_NAME)
 
         with open(meta_file, "w") as f:
             json.dump(meta, f, indent=4)

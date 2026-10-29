@@ -30,6 +30,8 @@ from app import config, log
 from app.data_structures import MethodId
 from app.task import SweTask, Task
 
+COVERAGE_CONFIG_FILE = ".coveragerc"
+
 
 class NoCoverageData(RuntimeError):
     def __init__(self, testing_log_file: str):
@@ -345,7 +347,7 @@ class PythonSbfl:
         execution_dir = tests_dir
         with apputils.cd(execution_dir):
             # (1) since we want to use coverage.py with dynamic context, create config first
-            cov_config = pjoin(execution_dir, ".coveragerc")
+            cov_config = pjoin(execution_dir, COVERAGE_CONFIG_FILE)
             cls._specify_dynamic_context(cov_config)
 
             # (2) actually run the tests to produce coverage output
@@ -416,7 +418,7 @@ class PythonSbfl:
                     test_files
                 ), f"Failed to find test files in command: {task.test_cmd}"
 
-                cov_config = pjoin(task.project_path, ".coveragerc")
+                cov_config = pjoin(task.project_path, COVERAGE_CONFIG_FILE)
 
                 cls._omit_coverage_in_file(cov_config, test_files)
 
@@ -434,7 +436,7 @@ class PythonSbfl:
 
                 test_cmd = f"python -m {task.test_cmd}"
             else:
-                cov_config = pjoin(task.project_path, ".coveragerc")
+                cov_config = pjoin(task.project_path, COVERAGE_CONFIG_FILE)
                 cls._specify_dynamic_context(cov_config)
                 test_cmd = f"python -m coverage run {task.test_cmd}"
 
