@@ -141,17 +141,7 @@ def run_one_task(task: Task, output_dir: str, model_names: Iterable[str]) -> boo
     return True
 
 
-def select_patch(task: Task, output_dir: str | PathLike) -> tuple[str, dict]:
-
-    patches = natsorted(list(Path(output_dir).glob("**/extracted_patch_*.diff")))
-
-    # TODO: These candidate patches must have been dismissed by reviewer. Maybe an
-    # assertion should be added to confirm this.
-    candidate_patches = [p for p in patches if may_pass_regression_tests(task, p)]
-
-    agent_comment = None
-    thread = None
-
+def _find_reviewer_approved_patch(patches: list, candidate_patches: list):
     for p in candidate_patches:
         index = p.with_suffix("").name.rpartition("_")[2]
         reviews = natsorted(
@@ -165,64 +155,49 @@ def select_patch(task: Task, output_dir: str | PathLike) -> tuple[str, dict]:
             assert samefile(
                 p, last_patch
             ), f"{p} is approved and passes validation, but the last patch was {last_patch}"
-            selected_patch = p
-            reason = "reviewer-approved"
-            break
+            return p
+    return None
+
+
+def _select_among_patches(task: Task, patches: list, reason_suffix: str):
+    agent_comment = None
+    thread = None
+    try:
+        index, agent_comment, thread = agent_select.run(
+            task.get_issue_statement(), [p.read_text() for p in patches]
+        )
+        reason = f"agent-selected,{reason_suffix}"
+    except Exception:
+        index = -1
+        reason = f"agent-error,{reason_suffix}"
+    return patches[index], reason, agent_comment, thread
+
+
+def select_patch(task: Task, output_dir: str | PathLike) -> tuple[str, dict]:
+
+    patches = natsorted(list(Path(output_dir).glob("**/extracted_patch_*.diff")))
+
+    # TODO: These candidate patches must have been dismissed by reviewer. Maybe an
+    # assertion should be added to confirm this.
+    candidate_patches = [p for p in patches if may_pass_regression_tests(task, p)]
+
+    agent_comment = None
+    thread = None
+
+    selected_patch = _find_reviewer_approved_patch(patches, candidate_patches)
+    if selected_patch is not None:
+        reason = "reviewer-approved"
+    elif len(candidate_patches) > 1:
+        selected_patch, reason, agent_comment, thread = _select_among_patches(
+            task, candidate_patches, "multiple-pass-regression"
+        )
+    elif len(candidate_patches) == 1:
+        selected_patch = candidate_patches[0]
+        reason = "no-agent,single-pass-regression"
     else:
-        if len(candidate_patches) > 1:
-            content_to_indices = defaultdict(list)
-            for idx, p in enumerate(candidate_patches):
-                content_to_indices[p.read_text()].append(idx)
-            items = sorted(
-                content_to_indices.items(),
-                key=lambda item: (len(item[1]), -item[1][0]),
-                reverse=True,
-            )
-
-            # if len(items[0]) > 1:
-            if False:
-                index = items[0][1][0]
-                selected_patch = candidate_patches[index]
-                reason = "majority,multiple-pass-regression"
-            else:
-                try:
-                    index, agent_comment, thread = agent_select.run(
-                        task.get_issue_statement(),
-                        [p.read_text() for p in candidate_patches],
-                    )
-                    reason = "agent-selected,multiple-pass-regression"
-                except Exception:
-                    index = -1
-                    reason = "agent-error,multiple-pass-regression"
-                selected_patch = candidate_patches[index]
-        elif len(candidate_patches) == 1:
-            selected_patch = candidate_patches[0]
-            reason = "no-agent,single-pass-regression"
-        else:
-            content_to_indices = defaultdict(list)
-            for idx, p in enumerate(patches):
-                content_to_indices[p.read_text()].append(idx)
-            items = sorted(
-                content_to_indices.items(),
-                key=lambda item: (len(item[1]), -item[1][0]),
-                reverse=True,
-            )
-
-            # if len(items[0]) > 1:
-            if False:
-                index = items[0][1][0]
-                selected_patch = patches[index]
-                reason = "majority,none-pass-regression"
-            else:
-                try:
-                    index, agent_comment, thread = agent_select.run(
-                        task.get_issue_statement(), [p.read_text() for p in patches]
-                    )
-                    reason = "agent-selected,none-pass-regression"
-                except Exception:
-                    index = -1
-                    reason = "agent-error,none-pass-regression"
-                selected_patch = patches[index]
+        selected_patch, reason, agent_comment, thread = _select_among_patches(
+            task, patches, "none-pass-regression"
+        )
 
     rel_selected_patch = str(selected_patch.relative_to(output_dir))
 

@@ -556,6 +556,24 @@ def evaluate_swe_issue_reproducer(
     task.evaluate_reproducer(reproducer_file, developer_patch_file, report_dir)
 
 
+def _remove_task_output_files(task_output_dir: str, log_file_name: str) -> None:
+    """
+    Remove everything in the task output dir other than the log file and
+    some meta data files dumped by RawTask.
+    """
+    files_to_keep = [
+        log_file_name,
+        "meta.json",
+        "problem_statement.txt",
+        "developer_patch.diff",
+    ]
+    for f in Path(task_output_dir).iterdir():
+        if f.is_file() and f.name not in files_to_keep:
+            f.unlink()
+        if f.is_dir():
+            shutil.rmtree(str(f))
+
+
 def do_inference(python_task: Task, task_output_dir: str) -> bool:
     apputils.create_dir_if_not_exists(task_output_dir)
 
@@ -605,16 +623,7 @@ def do_inference(python_task: Task, task_output_dir: str) -> bool:
                     "Removing all files except info.log and meta files."
                 )
 
-                for f in Path(task_output_dir).iterdir():
-                    if f.is_file() and f.name not in [
-                        log_file_name,
-                        "meta.json",
-                        "problem_statement.txt",
-                        "developer_patch.diff",
-                    ]:
-                        f.unlink()
-                    if f.is_dir():
-                        shutil.rmtree(str(f))
+                _remove_task_output_files(task_output_dir, log_file_name)
 
                 run_ok = inference.run_one_task(
                     python_task, task_output_dir, config.backup_model
