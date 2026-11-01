@@ -215,6 +215,27 @@ def extract_diff_one_instance(
     return status, summary
 
 
+def _apply_edits(edits, repo_path: str) -> list[int]:
+    """
+    Try to match and apply each edit. Returns indexes of edits that could not be applied.
+    """
+    unmatched_edit_indexes = []
+    for idx, edit in enumerate(edits):
+        # NOTE: do not clean here, since we want to accumulate changes from all edits
+        target_file = edit.filename
+        # find the target file. The model may only use the short name of the file,
+        # so we need to search for it here
+        found_file = apputils.find_file(repo_path, target_file)
+        if found_file is None:
+            unmatched_edit_indexes.append(idx)
+            continue
+        # try to apply this edit and update the actual file content
+        applied_file = apply_edit(edit, found_file)
+        if applied_file is None:
+            unmatched_edit_indexes.append(idx)
+    return unmatched_edit_indexes
+
+
 # TODO: move this to PatchWriter
 def convert_response_to_diff(
     response: str, task_dir: str, standalone_mode: bool = False
@@ -267,21 +288,7 @@ def convert_response_to_diff(
             # containing the test_patch content. We should just clean the changes until HEAD.
             apputils.repo_clean_changes()
         # try to match and apply each edit
-        unmatched_edit_indexes = []
-        for idx, edit in enumerate(edits):
-            # NOTE: do not clean here, since we want to accumulate changes from all edits
-            target_file = edit.filename
-            # find the target file. The model may only use the short name of the file,
-            # so we need to search for it here
-            found_file = apputils.find_file(repo_path, target_file)
-            if found_file is None:
-                unmatched_edit_indexes.append(idx)
-                continue
-            # try to apply this edit and update the actual file content
-            applied_file = apply_edit(edit, found_file)
-            if applied_file is None:
-                unmatched_edit_indexes.append(idx)
-                continue
+        unmatched_edit_indexes = _apply_edits(edits, repo_path)
 
         if len(unmatched_edit_indexes) == len(edits):
             # non of the edits can be matched

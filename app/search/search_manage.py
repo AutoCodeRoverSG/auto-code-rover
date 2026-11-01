@@ -95,55 +95,14 @@ class SearchManager:
             json_api_calls = selected_apis_json.get("API_calls", [])
             buggy_locations = selected_apis_json.get("bug_locations", [])
 
-            formatted = []
-            if json_api_calls:
-                formatted.append("API calls:")
-                for call in json_api_calls:
-                    formatted.extend([f"\n- `{call}`"])
-
-            if buggy_locations:
-                formatted.append("\n\nBug locations")
-                for location in buggy_locations:
-                    s = ", ".join(f"{k}: `{v}`" for k, v in location.items())
-                    formatted.extend([f"\n- {s}"])
-
-            print_acr("\n".join(formatted), "Agent-selected API calls")
+            self._print_selected_apis(json_api_calls, buggy_locations)
 
             # locations are confirmed by the agent - let's see whether the bug
             # locations are valid/precise
             if buggy_locations and (not json_api_calls):
-                # dump the locations for debugging
-                bug_loc_file = Path(
-                    self.output_dir, "bug_locations_before_process.json"
-                )
-                bug_loc_file.write_text(json.dumps(buggy_locations, indent=4))
-
-                new_bug_locations: list[BugLocation] = list()
-
-                for loc in buggy_locations:
-                    # this is the transformed bug location
-                    new_bug_locations.extend(self.backend.get_bug_loc_snippets_new(loc))
-
-                # remove duplicates in the bug locations
-                unique_bug_locations: list[BugLocation] = []
-                for loc in new_bug_locations:
-                    if loc not in unique_bug_locations:
-                        unique_bug_locations.append(loc)
+                new_bug_locations = self._process_bug_locations(buggy_locations)
 
                 if new_bug_locations:
-
-                    # some locations can be extracted, good to proceed to patch gen
-                    bug_loc_file_processed = Path(
-                        self.output_dir, "bug_locations_after_process.json"
-                    )
-
-                    json_obj = [loc.to_dict() for loc in new_bug_locations]
-                    bug_loc_file_processed.write_text(json.dumps(json_obj, indent=4))
-
-                    logger.debug(
-                        f"Bug location extracted successfully: {new_bug_locations}"
-                    )
-
                     return new_bug_locations, search_msg_thread
 
                 # bug location is not precise enough to go into patch gen
@@ -157,30 +116,7 @@ class SearchManager:
                 continue
 
             # location not confirmed by the search agent - send backend result and go to next round
-            collated_search_res_str = ""
-
-            for api_call in json_api_calls:
-                func_name, func_args = parse_function_invocation(api_call)
-                # TODO: there are currently duplicated code here and in agent_proxy.
-                func_unwrapped = getattr(self.backend, func_name)
-                while "__wrapped__" in func_unwrapped.__dict__:
-                    func_unwrapped = func_unwrapped.__wrapped__
-                arg_spec = inspect.getfullargspec(func_unwrapped)
-                arg_names = arg_spec.args[1:]  # first parameter is self
-
-                assert len(func_args) == len(
-                    arg_names
-                ), f"Number of argument is wrong in API call: {api_call}"
-
-                kwargs = dict(zip(arg_names, func_args))
-
-                function = getattr(self.backend, func_name)
-                result_str, _, call_ok = function(**kwargs)
-                collated_search_res_str += f"Result of {api_call}:\n\n"
-                collated_search_res_str += result_str + "\n\n"
-
-                # record the api calls made and the call status
-                self.add_tool_call_to_curr_layer(func_name, kwargs, call_ok)
+            collated_search_res_str = self._invoke_api_calls(json_api_calls)
 
             print_acr(collated_search_res_str, f"context retrieval round {round_no}")
             # send the results back to the search agent
@@ -194,6 +130,89 @@ class SearchManager:
         logger.info("Too many rounds. Try writing patch anyway.")
         assert search_msg_thread is not None
         return [], search_msg_thread
+
+    @staticmethod
+    def _print_selected_apis(json_api_calls: list, buggy_locations: list) -> None:
+        formatted = []
+        if json_api_calls:
+            formatted.append("API calls:")
+            for call in json_api_calls:
+                formatted.extend([f"\n- `{call}`"])
+
+        if buggy_locations:
+            formatted.append("\n\nBug locations")
+            for location in buggy_locations:
+                s = ", ".join(f"{k}: `{v}`" for k, v in location.items())
+                formatted.extend([f"\n- {s}"])
+
+        print_acr("\n".join(formatted), "Agent-selected API calls")
+
+    def _process_bug_locations(self, buggy_locations: list) -> list[BugLocation]:
+        """
+        Transform agent-selected bug locations into BugLocation objects.
+        Returns an empty list if no location could be extracted.
+        """
+        # dump the locations for debugging
+        bug_loc_file = Path(self.output_dir, "bug_locations_before_process.json")
+        bug_loc_file.write_text(json.dumps(buggy_locations, indent=4))
+
+        new_bug_locations: list[BugLocation] = list()
+
+        for loc in buggy_locations:
+            # this is the transformed bug location
+            new_bug_locations.extend(self.backend.get_bug_loc_snippets_new(loc))
+
+        # remove duplicates in the bug locations
+        unique_bug_locations: list[BugLocation] = []
+        for loc in new_bug_locations:
+            if loc not in unique_bug_locations:
+                unique_bug_locations.append(loc)
+
+        if not new_bug_locations:
+            return new_bug_locations
+
+        # some locations can be extracted, good to proceed to patch gen
+        bug_loc_file_processed = Path(
+            self.output_dir, "bug_locations_after_process.json"
+        )
+
+        json_obj = [loc.to_dict() for loc in new_bug_locations]
+        bug_loc_file_processed.write_text(json.dumps(json_obj, indent=4))
+
+        logger.debug(f"Bug location extracted successfully: {new_bug_locations}")
+
+        return new_bug_locations
+
+    def _invoke_api_calls(self, json_api_calls: list) -> str:
+        """
+        Invoke the search API calls on the backend and collate their results.
+        """
+        collated_search_res_str = ""
+
+        for api_call in json_api_calls:
+            func_name, func_args = parse_function_invocation(api_call)
+            # TODO: there are currently duplicated code here and in agent_proxy.
+            func_unwrapped = getattr(self.backend, func_name)
+            while "__wrapped__" in func_unwrapped.__dict__:
+                func_unwrapped = func_unwrapped.__wrapped__
+            arg_spec = inspect.getfullargspec(func_unwrapped)
+            arg_names = arg_spec.args[1:]  # first parameter is self
+
+            assert len(func_args) == len(
+                arg_names
+            ), f"Number of argument is wrong in API call: {api_call}"
+
+            kwargs = dict(zip(arg_names, func_args))
+
+            function = getattr(self.backend, func_name)
+            result_str, _, call_ok = function(**kwargs)
+            collated_search_res_str += f"Result of {api_call}:\n\n"
+            collated_search_res_str += result_str + "\n\n"
+
+            # record the api calls made and the call status
+            self.add_tool_call_to_curr_layer(func_name, kwargs, call_ok)
+
+        return collated_search_res_str
 
     def start_new_tool_call_layer(self):
         self.tool_call_layers.append([])

@@ -770,17 +770,9 @@ class SearchBackend:
         # (1) sometimes model can write class_name and method_name together in the
         # format Class.method
 
-        if not tmp_class_name and tmp_method_name and "." in tmp_method_name:
-            fragments = tmp_method_name.split(".")
-            if len(fragments) == 2:
-                tmp_class_name, tmp_method_name = fragments
-                logger.warning(
-                    "Successfully split {} and {}", tmp_class_name, tmp_method_name
-                )
-            else:
-                logger.warning(
-                    "Too many fragments. Examine the method name: {}", tmp_method_name
-                )
+        tmp_class_name, tmp_method_name = self._split_class_method_name(
+            tmp_class_name, tmp_method_name
+        )
 
         # we require at least the file_name to be given
         assert (
@@ -802,83 +794,154 @@ class SearchBackend:
         # satisfy the requirement above, so DO NOT use those functions here.
 
         if tmp_method_name and tmp_class_name:
-            output, curr_search_res, call_ok = self.search_method_in_class(
-                tmp_method_name, tmp_class_name
+            search_res, class_context_search_res, call_ok = (
+                self._search_method_in_class_with_context(
+                    tmp_method_name, tmp_class_name
+                )
             )
 
-            search_res.extend(curr_search_res)
-            if call_ok:
-                # when the location is decided to be method in a class, we also
-                # obtain (1) the entire class as location, and (2) the inherited
-                # parent class methods as location.
-                res: SearchResult
-                for res in curr_search_res:
-
-                    if (
-                        res.class_name is None
-                        or res.func_name is None
-                        or res.file_path is None
-                    ):
-                        continue
-
-                    inherited_output, inherited_search_res, _ = (
-                        self._get_inherited_methods(res.class_name, res.func_name)
-                    )
-                    search_res.extend(inherited_search_res)
-
-                    # this kind of class is special, they just serve as a context,
-                    # so the 'intended_behavior' field content does not apply for them.
-
-                    class_output, class_search_res, _ = self.search_class_in_file(
-                        res.class_name, res.file_path
-                    )
-                    class_context_search_res.extend(class_search_res)
-
-        if (not call_ok) and tmp_method_name and tmp_file_name:
-            output, search_res, call_ok = self.search_method_in_file(
-                tmp_method_name, tmp_file_name
+        if not call_ok:
+            search_res, call_ok = self._search_fallback_locations(
+                tmp_file_name, tmp_method_name, tmp_class_name
             )
-
-        if (not call_ok) and tmp_class_name and tmp_file_name:
-            output, search_res, call_ok = self.search_class_in_file(
-                tmp_class_name, tmp_file_name
-            )
-
-        if (not call_ok) and tmp_class_name:
-            output, search_res, call_ok = self.get_class_full_snippet(tmp_class_name)
-
-        if (not call_ok) and tmp_method_name:
-            output, search_res, call_ok = self.search_method(tmp_method_name)
-
-        if (not call_ok) and tmp_file_name:
-            output, search_res, call_ok = self.get_file_content(tmp_file_name)
 
         if not call_ok:
             # cannot find any location!!
             return []
 
         # we have some SearchResults => turn these into BugLocations
-        res: SearchResult
+        final_bug_locs = self._search_results_to_bug_locs(
+            search_res, intended_behavior
+        )
 
-        final_bug_locs: list[BugLocation] = []
+        # deal with additional class context search results
+        final_bug_locs.extend(
+            self._search_results_to_bug_locs(
+                class_context_search_res,
+                "This class provides additional context to the issue.",
+            )
+        )
+
+        return final_bug_locs
+
+    @staticmethod
+    def _split_class_method_name(
+        tmp_class_name: str, tmp_method_name: str
+    ) -> tuple[str, str]:
+        """
+        Sometimes model can write class_name and method_name together in the
+        format Class.method. Split them if possible.
+        """
+        if tmp_class_name or not tmp_method_name or "." not in tmp_method_name:
+            return tmp_class_name, tmp_method_name
+
+        fragments = tmp_method_name.split(".")
+        if len(fragments) != 2:
+            logger.warning(
+                "Too many fragments. Examine the method name: {}", tmp_method_name
+            )
+            return tmp_class_name, tmp_method_name
+
+        tmp_class_name, tmp_method_name = fragments
+        logger.warning("Successfully split {} and {}", tmp_class_name, tmp_method_name)
+        return tmp_class_name, tmp_method_name
+
+    def _search_method_in_class_with_context(
+        self, method_name: str, class_name: str
+    ) -> tuple[list[SearchResult], list[SearchResult], bool]:
+        """
+        Search for a method in a class. When found, also collect the inherited
+        parent class methods, and the entire class as context.
+        Returns (search_res, class_context_search_res, call_ok).
+        """
+        class_context_search_res: list[SearchResult] = []
+
+        _, curr_search_res, call_ok = self.search_method_in_class(
+            method_name, class_name
+        )
+        search_res: list[SearchResult] = list(curr_search_res)
+        if not call_ok:
+            return search_res, class_context_search_res, call_ok
+
+        # when the location is decided to be method in a class, we also
+        # obtain (1) the entire class as location, and (2) the inherited
+        # parent class methods as location.
+        res: SearchResult
+        for res in curr_search_res:
+            if not self._has_class_func_and_file(res):
+                continue
+
+            _, inherited_search_res, _ = self._get_inherited_methods(
+                res.class_name, res.func_name
+            )
+            search_res.extend(inherited_search_res)
+
+            # this kind of class is special, they just serve as a context,
+            # so the 'intended_behavior' field content does not apply for them.
+            _, class_search_res, _ = self.search_class_in_file(
+                res.class_name, res.file_path
+            )
+            class_context_search_res.extend(class_search_res)
+
+        return search_res, class_context_search_res, call_ok
+
+    @staticmethod
+    def _has_class_func_and_file(res: SearchResult) -> bool:
+        return (
+            res.class_name is not None
+            and res.func_name is not None
+            and res.file_path is not None
+        )
+
+    def _search_fallback_locations(
+        self, tmp_file_name: str, tmp_method_name: str, tmp_class_name: str
+    ) -> tuple[list[SearchResult], bool]:
+        """
+        Try progressively less specific searches until one succeeds.
+        Returns (search_res, call_ok).
+        """
+        attempts = [
+            (
+                bool(tmp_method_name and tmp_file_name),
+                lambda: self.search_method_in_file(tmp_method_name, tmp_file_name),
+            ),
+            (
+                bool(tmp_class_name and tmp_file_name),
+                lambda: self.search_class_in_file(tmp_class_name, tmp_file_name),
+            ),
+            (
+                bool(tmp_class_name),
+                lambda: self.get_class_full_snippet(tmp_class_name),
+            ),
+            (
+                bool(tmp_method_name),
+                lambda: self.search_method(tmp_method_name),
+            ),
+            (
+                bool(tmp_file_name),
+                lambda: self.get_file_content(tmp_file_name),
+            ),
+        ]
+
+        search_res: list[SearchResult] = []
+        for should_try, search_func in attempts:
+            if not should_try:
+                continue
+            _, search_res, call_ok = search_func()
+            if call_ok:
+                return search_res, True
+
+        return search_res, False
+
+    def _search_results_to_bug_locs(
+        self, search_res: list[SearchResult], intended_behavior: str
+    ) -> list[BugLocation]:
+        bug_locs: list[BugLocation] = []
         for res in search_res:
             if res.start is None or res.end is None:
                 continue
-            new_bug_loc = BugLocation(res, self.project_path, intended_behavior)
-            final_bug_locs.append(new_bug_loc)
-
-        # deal with additional class context search results
-        for res in class_context_search_res:
-            if res.start is None or res.end is None:
-                continue
-            new_bug_loc = BugLocation(
-                res,
-                self.project_path,
-                "This class provides additional context to the issue.",
-            )
-            final_bug_locs.append(new_bug_loc)
-
-        return final_bug_locs
+            bug_locs.append(BugLocation(res, self.project_path, intended_behavior))
+        return bug_locs
 
 
 if __name__ == "__main__":
